@@ -1,0 +1,10 @@
+{
+  "name": "LIFE SYSTEM",
+  "short_name": "LIFE SYSTEM",
+  "description": "Real World Interface",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f9f8fc",
+  "theme_color": "#f9f8fc",
+  "icons": [{ "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
