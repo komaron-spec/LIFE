@@ -16,11 +16,11 @@ function boot() {
 }
 
 async function reverseGeocode(lat, lon) {
-  const url = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=en&format=json`;
+  const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=en`;
   const data = await fetch(url).then((r) => r.ok ? r.json() : Promise.reject());
-  const place = data.results?.[0];
-  if (!place) throw new Error("no place");
-  return { location: String(place.name || "CURRENT AREA").toUpperCase(), region: [place.admin1, place.country].filter(Boolean).join(" / ").toUpperCase() || "CURRENT AREA" };
+  const locality = data.city || data.locality || data.principalSubdivision;
+  if (!locality) throw new Error("no place");
+  return { location: String(locality).toUpperCase(), region: [data.principalSubdivision, data.countryName].filter(Boolean).join(" / ").toUpperCase() || "CURRENT AREA" };
 }
 async function weather(lat, lon) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`;
