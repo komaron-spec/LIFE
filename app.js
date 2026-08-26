@@ -16,8 +16,15 @@ function boot() {
 }
 
 async function reverseGeocode(lat, lon) {
-  const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=en`;
-  const data = await fetch(url).then((r) => r.ok ? r.json() : Promise.reject());
+  const nominatim = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=10&addressdetails=1&accept-language=en`;
+  try {
+    const data = await fetch(nominatim).then((r) => r.ok ? r.json() : Promise.reject());
+    const address = data.address || {};
+    const locality = address.city || address.town || address.village || address.county || address.state;
+    if (locality) return { location: String(locality).toUpperCase(), region: [address.state, address.country].filter(Boolean).join(" / ").toUpperCase() || "CURRENT AREA" };
+  } catch { /* Try the secondary public resolver below. */ }
+  const fallback = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=en`;
+  const data = await fetch(fallback).then((r) => r.ok ? r.json() : Promise.reject());
   const locality = data.city || data.locality || data.principalSubdivision;
   if (!locality) throw new Error("no place");
   return { location: String(locality).toUpperCase(), region: [data.principalSubdivision, data.countryName].filter(Boolean).join(" / ").toUpperCase() || "CURRENT AREA" };
@@ -29,7 +36,7 @@ async function weather(lat, lon) {
   const names = { 0:"CLEAR", 1:"MAINLY CLEAR", 2:"PARTLY CLOUDY", 3:"OVERCAST", 45:"FOG", 48:"FOG", 51:"LIGHT DRIZZLE", 53:"DRIZZLE", 55:"HEAVY DRIZZLE", 61:"LIGHT RAIN", 63:"RAIN", 65:"HEAVY RAIN", 71:"SNOW", 80:"RAIN SHOWERS", 95:"THUNDERSTORM" };
   return { weather: names[code] || "LOCAL CONDITIONS", temperature: Math.round(data.current?.temperature_2m) };
 }
-function getPosition() { return new Promise((resolve, reject) => navigator.geolocation ? navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:false, timeout:9000, maximumAge:300000 }) : reject()); }
+function getPosition() { return new Promise((resolve, reject) => navigator.geolocation ? navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:20000, maximumAge:0 }) : reject()); }
 async function sync() {
   const button = document.querySelector("#sync"); if (button) button.disabled = true;
   renderSync("Reading local conditions…");
@@ -37,6 +44,8 @@ async function sync() {
   const world = { location:"LOCATION UNAVAILABLE", region:"SYNC WITHOUT LOCATION", weather:"WEATHER UNAVAILABLE", temperature:"—", phase:phase(now.getHours()), season:season(now.getMonth()), ambience:"The world is available. Location data can be enabled on a future sync.", syncedAt:now.toISOString() };
   try {
     const pos = await getPosition();
+    world.location = "GPS LOCKED";
+    world.region = `${pos.coords.latitude.toFixed(3)} / ${pos.coords.longitude.toFixed(3)}`;
     const [place, conditions] = await Promise.allSettled([reverseGeocode(pos.coords.latitude, pos.coords.longitude), weather(pos.coords.latitude, pos.coords.longitude)]);
     if (place.status === "fulfilled") Object.assign(world, place.value);
     if (conditions.status === "fulfilled") Object.assign(world, conditions.value);
