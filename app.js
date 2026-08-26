@@ -72,6 +72,17 @@ function navigatorBrief(world = state.world || {}, player = state.player) {
   if (!notes.length) notes.push({ tag:"GUIDANCE", title:"WORLD IS STABLE", copy:"いまのペースで大丈夫。気になった景色をひとつ観測してみてください。", tone:"calm" });
   return notes[0];
 }
+function navigatorGreeting(world, player) {
+  const hour = new Date().getHours();
+  const greeting = hour < 11 ? "おはようございます、プレイヤー。" : hour < 18 ? "こんにちは、プレイヤー。" : "おかえりなさい、プレイヤー。";
+  const details = [];
+  if (world.location && !/UNAVAILABLE|NOT SYNCED/.test(world.location)) details.push(`${world.location} / ${world.phase}`);
+  if (world.weather && world.weather !== "WEATHER UNAVAILABLE") details.push(`${world.weather} · ${world.temperature}°`);
+  const mission = upcomingCalendarEvent();
+  if (mission) details.push(`NEXT: ${calendarTime(mission)} ${mission.title}`);
+  else details.push(player.energy <= 45 ? "ENERGYが低めです。ゆっくり始めましょう。" : "WORLD SIGNALSは安定しています。");
+  return { greeting, details:details.slice(0, 3) };
+}
 function playerProfile() {
   const records = state.log.length;
   const discoveries = state.discoveries?.length || 0;
@@ -225,8 +236,9 @@ function showStatus() {
 function renderHome() {
   const w = state.world || { location:"WORLD NOT SYNCED", region:"SYNCを押して世界に入る", weather:"UNKNOWN", temperature:"—", phase:phase(new Date().getHours()), season:season(new Date().getMonth()), ambience:"最初のWORLD SYNCを待っています。" };
   applyWorldAtmosphere(w);
-  const now = new Date(); const p = state.player; const events = state.log.filter((e) => e.day === dateKey()).slice(0,3); const nav = navigatorBrief(w, p); const soundtrack = soundtrackFor(w); const activeTrack = soundtrackLibrary.find((track) => track.id === state.soundtrackId) || soundtrack; const nextMission = upcomingCalendarEvent();
+  const now = new Date(); const p = state.player; const events = state.log.filter((e) => e.day === dateKey()).slice(0,3); const nav = navigatorBrief(w, p); const soundtrack = soundtrackFor(w); const activeTrack = soundtrackLibrary.find((track) => track.id === state.soundtrackId) || soundtrack; const nextMission = upcomingCalendarEvent(); const greeting = navigatorGreeting(w, p);
   app.innerHTML = `<div class="shell home-enter" data-page="home"><header class="header"><div><p class="eyebrow">world time</p><p class="clock">${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false})}</p><p class="date">${now.toLocaleDateString([], {weekday:"long",day:"numeric",month:"long"})}</p></div><button id="sync" class="sync glass"><span class="eyebrow">sync</span><time>${w.syncedAt ? new Date(w.syncedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "READY"}</time></button></header>${pageNav("world")}<div class="stack">
+  <button class="card glass navigator-greeting" data-page="navigator"><div class="navigator-greeting-head"><i></i><p class="eyebrow">navigator / online</p><span>OPEN →</span></div><strong>${esc(greeting.greeting)}</strong><div class="greeting-signals">${greeting.details.map((detail) => `<span>${esc(detail)}</span>`).join("")}</div></button>
   <section class="card glass world-card"><div class="section-head"><p class="eyebrow">world state</p><p class="world-live"><i></i>LIVE</p></div><div class="world-hero"><div class="location-mark">${icon("location")}</div><div class="place"><div><h2>${esc(w.location)}</h2><p class="region">${esc(w.region)}</p></div><span class="temperature">${esc(w.temperature)}°</span></div></div><div class="tiles visual-tiles"><div class="tile"><span class="tile-icon season-icon">${icon("sun")}</span><p class="eyebrow">season</p><b>${esc(w.season)}</b></div><div class="tile"><span class="tile-icon">${icon(phaseIcon(w.phase))}</span><p class="eyebrow">phase</p><b>${esc(w.phase)}</b></div><div class="tile weather-tile"><span class="tile-icon">${icon(weatherIcon(w.weather))}</span><p class="eyebrow">weather</p><b>${esc(w.weather)}</b></div></div><p class="ambience">${esc(w.ambience)}</p></section>
   ${nextMission ? `<button class="card glass next-mission-card" data-page="world"><div class="section-head"><p class="eyebrow">next world mission</p><span>CALENDAR</span></div><div><time>${calendarTime(nextMission)}</time><div><strong>${esc(nextMission.title)}</strong><p>${esc(nextMission.location || "GOOGLE CALENDAR EVENT")}</p></div><b>→</b></div></button>` : ""}
   <section class="card glass ${state.lastSyncEvents ? "events-new" : ""} ${state.lastDiscovery ? "discovery-detected" : ""}"><div class="section-head"><p class="eyebrow">event / discovery</p><p class="event-engine-live"><i></i>${state.lastSyncEvents ? `${state.lastSyncEvents} NEW` : `AUTO · ${events.length}`}</p></div>${state.lastDiscovery ? `<p class="discovery-banner">✦ NEW DISCOVERY UNLOCKED</p>` : state.lastSyncEvents ? `<p class="new-events-banner">WORLD SYNCで新しい変化を検知しました</p>` : ""}${events.length ? events.map((e) => `<div class="log-entry"><p class="eyebrow">${esc(e.kind)} · ${esc(e.time)}</p><strong>${esc(e.title)}</strong><p>${esc(e.detail)}</p></div>`).join("") : `<div class="event"><i class="signal"></i><p>まだ新しいシグナルはありません。<br>SYNCすると、いまの世界を観測できます。</p></div>`}</section>
