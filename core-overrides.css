@@ -171,3 +171,38 @@ body::after { opacity:.36; }
 .core-refraction-ripple::after { position:absolute; inset:-1px; border:1px solid rgba(233,207,255,.44); border-radius:inherit; content:""; }
 @keyframes core-caustics { 0% { transform:translate3d(var(--caustic-x),var(--caustic-y),0) rotate(var(--caustic-rotation)) scale(1.08); } 53% { transform:translate3d(calc(var(--caustic-x) + 15%),calc(var(--caustic-y) + 13%),0) rotate(calc(var(--caustic-rotation) + 60deg)) scale(1.16); } 100% { transform:translate3d(calc(var(--caustic-x) + 7%),calc(var(--caustic-y) + 20%),0) rotate(calc(var(--caustic-rotation) + 102deg)) scale(1.12); } }
 @keyframes core-refraction-ripple { 0% { opacity:0; transform:translate(-50%,-50%) scale(.15); } 24% { opacity:.92; } 100% { opacity:0; transform:translate(-50%,-50%) scale(13); } }
+
+/* WORLD VIEW: device sensors become a quiet field instrument, never a busy AR overlay. */
+.world-scan-hero .world-orbital { margin-top:20px; }
+.sky-scan-card { overflow:hidden; }
+.sky-scan-card .section-head > span,.world-camera-card .section-head > span { color:#7898ad; font:8px ui-monospace,monospace; letter-spacing:.08em; }
+.sky-compass { position:relative; display:grid; place-items:center; width:min(65vw,250px); aspect-ratio:1; margin:16px auto 12px; border-radius:50%; background:radial-gradient(circle at 36% 27%,rgba(255,255,255,.9),rgba(213,239,255,.34) 47%,rgba(224,207,255,.22)); box-shadow:inset 0 1px rgba(255,255,255,.94),inset 0 0 32px rgba(152,209,245,.19),0 18px 42px -32px rgba(73,110,156,.58); isolation:isolate; }
+.sky-compass::before,.sky-compass::after { position:absolute; border-radius:inherit; content:""; pointer-events:none; }
+.sky-compass::before { inset:13px; border:1px solid rgba(255,255,255,.87); box-shadow:inset 0 0 0 1px rgba(134,180,215,.14); }
+.sky-compass::after { inset:34px; border:1px dashed rgba(122,172,207,.27); animation:sky-orbit 24s linear infinite; }
+.sky-compass-ring { position:absolute; inset:5px; border:1px solid rgba(139,192,226,.25); border-radius:50%; }
+.sky-heading-needle { position:absolute; top:18px; left:50%; z-index:1; width:2px; height:42%; border-radius:999px; background:linear-gradient(#d69dca 0 49%,rgba(116,179,214,.18) 50%); box-shadow:0 0 11px rgba(194,155,221,.68); transform:translateX(-50%) rotate(var(--heading,0deg)); transform-origin:50% calc(100% - 3px); transition:transform .22s ease-out; }
+.sky-heading-needle::after { position:absolute; bottom:-3px; left:50%; width:9px; height:9px; border:2px solid rgba(255,255,255,.9); border-radius:50%; background:#cfeeff; box-shadow:0 0 10px rgba(162,213,246,.8); content:""; transform:translateX(-50%); }
+.sky-north { position:absolute; top:11px; color:#9d79aa; font:600 10px ui-monospace,monospace; }
+.sky-compass strong { position:relative; z-index:2; margin-top:-15px; color:#607b9d; font:500 31px/.9 ui-monospace,monospace; letter-spacing:-.08em; }
+.sky-compass b { position:absolute; z-index:2; bottom:51px; color:#7798b2; font:700 12px ui-monospace,monospace; letter-spacing:.14em; }
+.sky-compass small { position:absolute; z-index:2; bottom:29px; color:#93a7bd; font:7px ui-monospace,monospace; letter-spacing:.12em; }
+.sky-guide { display:flex; align-items:center; gap:11px; margin:13px 0 15px; padding:10px 12px; border-top:1px solid rgba(139,181,215,.15); border-bottom:1px solid rgba(139,181,215,.15); }
+.sky-guide > i { width:25px; height:25px; border-radius:50%; background:radial-gradient(circle at 34% 31%,#fff 0 11%,#fff1b9 18%,#cbefff 52%,#d8bdf1); box-shadow:0 0 18px rgba(182,214,251,.76); animation:sky-guide-pulse 5s ease-in-out infinite; }
+.sky-guide div { display:grid; gap:2px; }
+.sky-guide small { color:#9aabc0; font:7px ui-monospace,monospace; letter-spacing:.11em; }
+.sky-guide strong { color:#617d9e; font-size:13px; letter-spacing:.06em; }
+.sky-guide span,.sensor-note { color:#879bb3; font-size:10px; line-height:1.55; }
+.sensor-note { margin:11px 4px 0; }
+.world-camera-card > strong { display:block; margin:8px 0 5px; color:#617d9d; font-size:17px; }
+.world-camera-card > p { margin:0 0 14px; color:#8397af; font-size:11px; line-height:1.6; }
+.world-camera-portal { position:relative; display:none; overflow:hidden; aspect-ratio:4 / 5; margin:0 0 12px; border:1px solid rgba(255,255,255,.85); border-radius:23px; background:radial-gradient(circle at 50% 30%,rgba(206,234,255,.6),rgba(224,208,244,.4)); box-shadow:inset 0 1px rgba(255,255,255,.82),0 16px 34px -28px rgba(64,91,136,.62); }
+.world-camera-portal.is-active { display:block; animation:world-camera-in .42s cubic-bezier(.16,1,.3,1); }
+.world-camera-portal video { width:100%; height:100%; object-fit:cover; }
+.world-camera-overlay { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; padding:14px; color:white; background:linear-gradient(180deg,rgba(25,49,81,.35),transparent 28%,transparent 72%,rgba(30,53,84,.38)); pointer-events:none; }
+.world-camera-overlay span,.world-camera-overlay i { font:8px ui-monospace,monospace; font-style:normal; letter-spacing:.1em; text-shadow:0 1px 4px rgba(22,39,69,.6); }
+.world-camera-overlay b { align-self:center; margin:auto 0; padding:8px 12px; border:1px solid rgba(255,255,255,.68); border-radius:999px; background:rgba(255,255,255,.16); backdrop-filter:blur(10px); font:11px ui-monospace,monospace; letter-spacing:.11em; }
+.world-camera-card .subtle-action { margin-top:8px; }
+@keyframes sky-orbit { to { transform:rotate(360deg); } }
+@keyframes sky-guide-pulse { 50% { transform:scale(1.12); filter:brightness(1.08); } }
+@keyframes world-camera-in { from { opacity:0; transform:scale(.96); filter:blur(7px); } to { opacity:1; transform:none; filter:none; } }

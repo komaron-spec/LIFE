@@ -26,6 +26,8 @@ const soundtrackLibrary = [
 const state = JSON.parse(localStorage.getItem(KEY) || "null") || { log: [], player: { level: 1, exp: 120, hp: 86, energy: 72, focus: 61 } };
 let homeClock;
 let coreAmbientTimer;
+let worldCameraStream;
+let worldOrientationHandler;
 const dateKey = () => new Date().toLocaleDateString("en-CA");
 const save = () => localStorage.setItem(KEY, JSON.stringify(state));
 let systemAudio;
@@ -562,6 +564,71 @@ function applyWorldAtmosphere(world) {
   app.dataset.phase = String(world.phase || phase(new Date().getHours())).toLowerCase();
   app.dataset.weather = /RAIN|DRIZZLE|THUNDER/.test(world.weather || "") ? "rain" : /CLOUD|OVERCAST|FOG/.test(world.weather || "") ? "cloud" : "clear";
 }
+function stopWorldSensors() {
+  if (worldOrientationHandler) window.removeEventListener("deviceorientation", worldOrientationHandler, true);
+  worldOrientationHandler = undefined;
+  if (worldCameraStream) worldCameraStream.getTracks().forEach((track) => track.stop());
+  worldCameraStream = undefined;
+}
+function compassLabel(degrees) {
+  const names = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return names[Math.round((((degrees % 360) + 360) % 360) / 45) % 8];
+}
+function skyGuide(world = {}) {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 18) return { object:"SUN", copy:"昼の光を観測中", tone:"sun" };
+  const month = new Date().getMonth() + 1;
+  const seasonal = month >= 11 || month <= 2 ? "ORION WINDOW" : month >= 6 && month <= 8 ? "SUMMER SKY WINDOW" : "NIGHT SKY WINDOW";
+  return { object:seasonal, copy:"夜空の観測条件を準備中", tone:"moon" };
+}
+async function enableSkyScan() {
+  const button = app.querySelector("#enable-sky-scan");
+  try {
+    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission !== "granted") throw new Error("orientation denied");
+    }
+    const update = (event) => {
+      const raw = Number.isFinite(event.webkitCompassHeading) ? event.webkitCompassHeading : (Number.isFinite(event.alpha) ? 360 - event.alpha : null);
+      if (!Number.isFinite(raw)) return;
+      const heading = Math.round((raw + 360) % 360);
+      const needle = app.querySelector("#sky-heading-needle");
+      const degree = app.querySelector("#sky-heading-degree");
+      const direction = app.querySelector("#sky-heading-label");
+      const signal = app.querySelector("#sky-sensor-state");
+      if (needle) needle.style.setProperty("--heading", `${heading}deg`);
+      if (degree) degree.textContent = `${heading.toString().padStart(3, "0")}°`;
+      if (direction) direction.textContent = compassLabel(heading);
+      if (signal) signal.textContent = "SENSOR LINKED";
+    };
+    if (worldOrientationHandler) window.removeEventListener("deviceorientation", worldOrientationHandler, true);
+    worldOrientationHandler = update;
+    window.addEventListener("deviceorientation", update, true);
+    if (button) { button.textContent = "方角を観測中"; button.disabled = true; }
+    systemFeedback("scan");
+  } catch {
+    if (button) button.textContent = "方角センサーを許可する";
+    const signal = app.querySelector("#sky-sensor-state");
+    if (signal) signal.textContent = "PERMISSION REQUIRED";
+  }
+}
+async function openWorldCamera() {
+  const status = app.querySelector("#world-camera-state");
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("camera unsupported");
+    worldCameraStream?.getTracks().forEach((track) => track.stop());
+    worldCameraStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:"environment" } }, audio:false });
+    const video = app.querySelector("#world-camera-video");
+    if (!video) return;
+    video.srcObject = worldCameraStream;
+    await video.play();
+    app.querySelector(".world-camera-portal")?.classList.add("is-active");
+    if (status) status.textContent = "LIVE / LOCAL ONLY";
+    systemFeedback("scan");
+  } catch {
+    if (status) status.textContent = "CAMERA PERMISSION REQUIRED";
+  }
+}
 function activateGlassPhysics(scope = app) {
   scope.querySelectorAll(".card, .detail-card, .sound-player, .navigator-message").forEach((card) => {
     const shine = (event) => { const rect = card.getBoundingClientRect(); card.style.setProperty("--shine-x", `${((event.clientX - rect.left) / rect.width) * 100}%`); card.style.setProperty("--shine-y", `${((event.clientY - rect.top) / rect.height) * 100}%`); card.classList.add("glass-active"); };
@@ -578,6 +645,7 @@ function showStatus() {
   modal.addEventListener("click", (e) => { const value = e.target.closest("[data-status]")?.dataset.status; if (!value) return; state.status ||= {}; state.status[dateKey()] = value; state.log.unshift({id:crypto.randomUUID(),day:dateKey(),time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),kind:"STATUS",title:`WORLD ENTRY: ${value}`,detail:`DAY START STATUS — ${statusJapanese[value]}`}); save(); modal.remove(); renderHome(); }); document.body.append(modal);
 }
 function renderHome() {
+  stopWorldSensors();
   const w = state.world || { location:"WORLD NOT SYNCED", region:"SYNCを押して世界に入る", weather:"UNKNOWN", temperature:"—", phase:phase(new Date().getHours()), season:season(new Date().getMonth()), ambience:"最初のWORLD SYNCを待っています。" };
   applyWorldAtmosphere(w);
   const now = new Date(); const p = state.player; const events = state.log.filter((e) => e.day === dateKey()).slice(0,3); const nav = navigatorBrief(w, p); const soundtrack = soundtrackFor(w); const activeTrack = soundtrackLibrary.find((track) => track.id === state.soundtrackId) || soundtrack; const nextMission = upcomingCalendarEvent(); const greeting = navigatorGreeting(w, p); const current = currentPlayerState(w); const activeQuest = state.quests?.find((quest) => quest.status === "active"); const latestMessage = systemLog()[0];
@@ -654,6 +722,7 @@ function renderSystemLog() {
 
 function renderPage(page) {
   clearInterval(homeClock);
+  if (page !== "world") stopWorldSensors();
   const w = state.world || { location:"WORLD NOT SYNCED", region:"SYNCを押して世界に入る", weather:"UNKNOWN", temperature:"—", phase:phase(new Date().getHours()), season:season(new Date().getMonth()), ambience:"最初のWORLD SYNCを待っています。" };
   const todayEvents = state.log.filter((event) => event.day === dateKey());
   const now = new Date();
@@ -662,7 +731,7 @@ function renderPage(page) {
   if (page === "player") { content = renderEnhancedPlayer(w); page = "__player"; }
   if (page === "navigator") { content = renderEnhancedNavigator(w); page = "__navigator"; }
   if (page === "systemlog") { content = renderSystemLog(); page = "__systemlog"; }
-  if (page === "world") content = `<section class="page-hero world-page-hero"><p class="eyebrow">real world / live</p><h1>WORLD</h1><p>いま、この場所で進行している世界。</p><div class="world-orbital"><span class="location-mark">${icon("location")}</span><div><strong>${esc(w.location)}</strong><small>${esc(w.region)}</small></div><b>${esc(w.temperature)}°</b></div></section><section class="detail-card glass"><p class="eyebrow">world conditions</p><div class="condition-list"><div><span>${icon(phaseIcon(w.phase))}</span><p>TIME<b>${esc(w.phase)}</b></p></div><div><span>${icon(weatherIcon(w.weather))}</span><p>WEATHER<b>${esc(w.weather)}</b></p></div><div><span>${icon("sun")}</span><p>SEASON<b>${esc(w.season)}</b></p></div></div><p class="ambience">${esc(w.ambience)}</p><button class="primary-action" id="page-sync">SYNC WORLD</button></section>`;
+  if (page === "world") { const guide = skyGuide(w); content = `<section class="page-hero world-page-hero world-scan-hero"><p class="eyebrow">world sensor array / live</p><h1>WORLD VIEW</h1><p>端末を現実へ向けて、いまいる世界を観測する。</p><div class="world-orbital"><span class="location-mark">${icon("location")}</span><div><strong>${esc(w.location)}</strong><small>${esc(w.region)}</small></div><b>${esc(w.temperature)}°</b></div></section><section class="detail-card glass sky-scan-card ${guide.tone}"><div class="section-head"><p class="eyebrow">sky scan</p><span id="sky-sensor-state">READY</span></div><div class="sky-compass"><i class="sky-compass-ring"></i><i id="sky-heading-needle" class="sky-heading-needle"></i><span class="sky-north">N</span><strong id="sky-heading-degree">---°</strong><b id="sky-heading-label">—</b><small>DEVICE HEADING</small></div><div class="sky-guide"><i></i><div><small>CELESTIAL GUIDE</small><strong>${guide.object}</strong><span>${guide.copy}</span></div></div><button class="primary-action" id="enable-sky-scan">方角センサーを許可する</button><p class="sensor-note">方角は端末のセンサーで表示します。星空ガイドは時刻・現在地をもとに拡張予定です。</p></section><section class="detail-card glass world-camera-card"><div class="section-head"><p class="eyebrow">world view</p><span id="world-camera-state">CAMERA OFF</span></div><strong>現実世界をスキャンする</strong><p>カメラ映像の上に、方角・WORLD STATE・現在地を重ねる簡易AR VIEW。映像は端末外へ送信・保存しません。</p><div class="world-camera-portal"><video id="world-camera-video" autoplay playsinline muted></video><div class="world-camera-overlay"><span>LIVE WORLD VIEW</span><b>${esc(w.location || "WORLD")}</b><i>● LINK STABLE</i></div></div><button class="primary-action" id="open-world-camera">カメラを起動する</button><button class="subtle-action" id="close-world-camera">カメラを閉じる</button></section><section class="detail-card glass"><p class="eyebrow">world conditions</p><div class="condition-list"><div><span>${icon(phaseIcon(w.phase))}</span><p>TIME<b>${esc(w.phase)}</b></p></div><div><span>${icon(weatherIcon(w.weather))}</span><p>WEATHER<b>${esc(w.weather)}</b></p></div><div><span>${icon("sun")}</span><p>SEASON<b>${esc(w.season)}</b></p></div></div><p class="ambience">${esc(w.ambience)}</p><button class="primary-action" id="page-sync">SYNC WORLD</button></section>`; }
   if (page === "player") { const profile = playerProfile(); const current = currentPlayerState(w); const growth = coreGrowth(); const review = growthReview(); const reviewed = state.growthReviewWeek === weekKey(); content = `<section class="page-hero player-hero"><p class="eyebrow">character profile</p><h1>PLAYER</h1><p>現実を歩く、あなた自身のステータス。</p><div class="player-portrait"><div class="player-level-ring" style="--level-progress:${state.player.exp / 5}%"><div class="level glass"><span class="eyebrow">lv</span><strong>${state.player.level}</strong></div></div><div><strong>${esc(profile.name)}</strong><small>${profile.title}<br>DAY START · ${esc(state.status?.[dateKey()] || "UNKNOWN")}</small></div></div></section><section class="detail-card glass player-identity"><div class="section-head"><p class="eyebrow">player identity</p><span>LOCAL PROFILE</span></div><input id="player-name" maxlength="24" value="${esc(profile.name)}" aria-label="プレイヤー名"><button class="subtle-action" id="save-player-name">SAVE IDENTITY</button></section><section class="detail-card glass"><div class="section-head"><p class="eyebrow">current status</p><span class="live-status"><i></i>LIVE</span></div><p class="status-intro">いまの時間・天気・PLAYER状態から変化します。</p><div class="parameter-list">${[["HP",current.hp,"#f4b9cc"],["ENERGY",current.energy,"#bfe5d0"],["FOCUS",current.focus,"#b8e5f2"],["SPIRIT",current.spirit,"#d8ccff"],["SOCIAL",current.social,"#f5d5a9"]].map(([label,value,color]) => `<div><p><span>${label}</span><b>${value}</b></p><i><span style="width:${value}%;background:${color}"></span></i></div>`).join("")}</div></section><section class="detail-card glass"><p class="eyebrow">status effects</p><div class="effect-list">${current.effects.map(([name,copy,tone]) => `<div class="effect ${tone}"><i></i><div><strong>${name}</strong><p>${copy}</p></div></div>`).join("")}</div></section><section class="detail-card glass core-growth"><div class="section-head"><p class="eyebrow">core growth</p><span>LONG TERM</span></div><p class="status-intro">数週間〜数か月で変化する、あなたの土台。</p><div class="growth-grid">${[["creativity","CREATIVITY","INT / MAGIC"],["discipline","DISCIPLINE","WILL / STAMINA"],["curiosity","CURIOSITY","PERCEPTION"],["communication","COMMUNICATION","CHA"],["resilience","RESILIENCE","VIT"]].map(([key,label,role]) => `<div><b>${growth[key]}</b><span>${label}</span><small>${role}</small></div>`).join("")}</div></section><section class="detail-card glass growth-review"><div class="section-head"><p class="eyebrow">growth review</p><span>${reviewed ? "COMPLETE" : "WEEKLY"}</span></div>${reviewed ? `<p class="status-intro">今週の成長は確定済みです。次の週にまた観測します。</p>` : review.length ? `<p class="status-intro">最近のWORLD LOGから、成長候補を検出しました。</p><div class="review-gains">${review.map(([, label, gain]) => `<span>${label}<b>+${gain}</b></span>`).join("")}</div><button class="primary-action" id="apply-growth">APPLY GROWTH</button>` : `<p class="status-intro">記録やDISCOVERYが増えると、成長候補が現れます。</p>`}</section>`; }
   if (page === "navigator") { const brief = navigatorBrief(w); content = `<section class="page-hero navigator-hero"><p class="eyebrow">personal world navigator</p><h1>NAVIGATOR</h1><p>現実のシグナルを読み、いまのあなたを補佐します。</p><div class="navigator-core ${brief.tone}"><i></i><span>ONLINE<br><b>LOCAL INTELLIGENCE</b></span><em><u></u><u></u><u></u><u></u></em></div></section><section class="navigator-message glass ${brief.tone}"><p class="eyebrow">${brief.tag}</p><h2>${brief.title}</h2><p>${brief.copy}</p><span class="navigator-scan">ANALYZING WORLD SIGNALS</span></section><section class="detail-card glass"><p class="eyebrow">signals read</p><div class="navigator-signals"><span>${esc(w.location || "LOCATION UNKNOWN")}<small>LOCATION</small></span><span>${esc(w.weather || "WEATHER UNKNOWN")}<small>WEATHER</small></span><span>${state.player.energy}<small>ENERGY</small></span><span>${state.player.focus}<small>FOCUS</small></span></div><button class="primary-action" id="refresh-navigator">OBSERVE AGAIN</button></section><p class="navigator-note">このNAVIGATORは端末内のデータだけで観測します。外部AI・課金・データ送信はありません。</p>`; }
   if (page === "archive") { const archive = archiveState(); const mode = state.atlasMode || "japan"; const discoveredPrefectures = japanAtlas.filter((item) => archive.prefectures[item.id]).length; const exploredPrefectures = japanAtlas.filter((item) => archive.places[`${item.id}:landmark`]).length; const detectedPrefecture = japanAtlas.find((item) => String(w.region || "").toUpperCase().includes(item.key)); const selected = japanAtlas.find((item) => item.id === state.atlasSelected) || detectedPrefecture || japanAtlas.find((item) => item.id === "nara"); const selectedState = archivePrefectureState(selected); const worldRegion = state.atlasWorldRegion || "ASIA"; const countriesInRegion = worldAtlas.filter((item) => item.region === worldRegion); content = `<section class="page-hero atlas-hero"><p class="eyebrow">system database / real world</p><h1>ARCHIVE</h1><p>実際に歩いた世界だけが、少しずつ色づいていく。</p><div class="atlas-stat"><span><b>${discoveredPrefectures}</b> / 47<small>JAPAN DISCOVERED</small></span><span><b>${Object.keys(archive.countries).length}</b> / ${worldAtlas.length}<small>WORLD GATEWAYS</small></span></div></section><section class="atlas-mode glass"><button class="${mode === "japan" ? "is-active" : ""}" data-atlas-mode="japan">JAPAN ATLAS</button><button class="${mode === "world" ? "is-active" : ""}" data-atlas-mode="world">WORLD ATLAS</button></section>${mode === "japan" ? `<section class="detail-card glass japan-atlas"><div class="atlas-head"><div><p class="eyebrow">japan exploration map</p><strong>${discoveredPrefectures} AREAS DISCOVERED</strong></div><span><i></i>LIVE GPS</span></div><div class="japan-map" aria-label="日本探索マップ">${japanAtlas.map((item) => `<button class="atlas-region ${archivePrefectureState(item)} ${selected.id === item.id ? "is-selected" : ""}" style="--x:${item.x};--y:${item.y}" data-atlas-pref="${item.id}" aria-label="${item.name}"><b>${item.name}</b><i></i></button>`).join("")}</div><div class="atlas-legend"><span><i class="unknown"></i>未発見</span><span><i class="discovered"></i>発見</span><span><i class="explored"></i>探索済み</span></div></section><section class="detail-card glass atlas-detail ${selectedState}"><div class="section-head"><p class="eyebrow">prefecture codex</p><span>${selectedState.toUpperCase()}</span></div><h2>${selected.name}</h2><p>${selectedState === "unknown" ? "このエリアはまだ霧に包まれています。実際に入ると、地図が開きます。" : selectedState === "discovered" ? "最初の領域を発見しました。代表スポットを訪れると探索度が上がります。" : "代表スポットを発見済み。この地域の世界はあなたの記録になりました。"}</p><div class="atlas-missions"><div class="${archive.places[`${selected.id}:landmark`] ? "complete" : ""}"><i></i><span>${selected.spot}</span><small>${archive.places[`${selected.id}:landmark`] ? "DISCOVERED" : "UNEXPLORED"}</small></div><div class="locked"><i></i><span>季節の再訪</span><small>UNKNOWN CONDITION</small></div><div class="locked"><i></i><span>夜の探索</span><small>UNKNOWN CONDITION</small></div></div></section>` : `<section class="detail-card glass world-atlas"><div class="atlas-head"><div><p class="eyebrow">world exploration map</p><strong>THE WORLD IS STILL OPEN</strong></div><span><i></i>ATLAS ONLINE</span></div><div class="world-map">${["NORTH AMERICA","SOUTH AMERICA","EUROPE","AFRICA","ASIA","OCEANIA"].map((region) => { const entries = worldAtlas.filter((item) => item.region === region); const complete = entries.filter((item) => archive.countries[item.key]).length; return `<button class="continent ${worldRegion === region ? "is-selected" : ""} ${complete ? "discovered" : ""}" data-world-region="${region}"><span>${region}</span><b>${complete} / ${entries.length}</b></button>`; }).join("")}</div><div class="world-country-list"><p class="eyebrow">${worldRegion}</p>${countriesInRegion.map((country) => `<div class="${archive.countries[country.key] ? "complete" : ""}"><i></i><span>${country.name}</span><small>${archive.countries[country.key] ? "DISCOVERED" : "UNKNOWN"}</small></div>`).join("")}</div></section>`}`; }
@@ -683,6 +752,15 @@ function renderPage(page) {
   app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
   app.querySelector("[data-home]").addEventListener("click", () => { systemFeedback("back"); const shell = app.querySelector(".shell"); shell.classList.add("page-exit"); setTimeout(renderHome, 240); });
   app.querySelector("#page-sync")?.addEventListener("click", sync);
+  app.querySelector("#enable-sky-scan")?.addEventListener("click", enableSkyScan);
+  app.querySelector("#open-world-camera")?.addEventListener("click", openWorldCamera);
+  app.querySelector("#close-world-camera")?.addEventListener("click", () => {
+    if (worldCameraStream) worldCameraStream.getTracks().forEach((track) => track.stop());
+    worldCameraStream = undefined;
+    app.querySelector(".world-camera-portal")?.classList.remove("is-active");
+    const status = app.querySelector("#world-camera-state");
+    if (status) status.textContent = "CAMERA OFF";
+  });
   app.querySelector("#system-sync")?.addEventListener("click", sync);
   app.querySelector("#system-status")?.addEventListener("click", showStatus);
   app.querySelector("#connect-calendar")?.addEventListener("click", () => connectGoogleCalendar("system"));
