@@ -37,6 +37,23 @@ function navigatorBrief(world = state.world || {}, player = state.player) {
   if (!notes.length) notes.push({ tag:"GUIDANCE", title:"WORLD IS STABLE", copy:"いまのペースで大丈夫。気になった景色をひとつ観測してみてください。", tone:"calm" });
   return notes[0];
 }
+function isUsableWorldValue(value) { return value && !/UNAVAILABLE|UNKNOWN|NOT SYNCED|GPS LOCKED/.test(String(value)); }
+function detectWorldEvents(previous, current, now) {
+  const detected = [];
+  const event = (kind, title, detail) => detected.push({ id:crypto.randomUUID(), day:dateKey(), time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind, title, detail });
+  if (previous) {
+    if (isUsableWorldValue(previous.location) && isUsableWorldValue(current.location) && previous.location !== current.location) event("EVENT", "LOCATION UPDATED", `${previous.location} → ${current.location}`);
+    if (isUsableWorldValue(previous.weather) && isUsableWorldValue(current.weather) && previous.weather !== current.weather) event("EVENT", "WEATHER SHIFT DETECTED", `${previous.weather} → ${current.weather}`);
+    if (previous.phase && current.phase && previous.phase !== current.phase) event("EVENT", `${current.phase} PHASE BEGUN`, `WORLD TIME shifted from ${previous.phase}.`);
+    if (Number.isFinite(Number(previous.temperature)) && Number.isFinite(Number(current.temperature)) && Math.abs(Number(previous.temperature) - Number(current.temperature)) >= 4) event("EVENT", "TEMPERATURE SHIFT", `${previous.temperature}° → ${current.temperature}°`);
+  }
+  if (isUsableWorldValue(current.location)) {
+    state.discoveries ||= [];
+    const locationKey = `${current.location} / ${current.region || ""}`;
+    if (!state.discoveries.includes(locationKey)) { state.discoveries.push(locationKey); event("DISCOVERY", "NEW LOCATION DISCOVERED", `${current.location} has been added to your world.`); }
+  }
+  return detected;
+}
 function boot() {
   clearInterval(homeClock);
   app.innerHTML = `<section class="boot"><div class="boot-world"><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">real world interface</p><div class="progress"><i></i></div><p id="boot-copy">世界との接続を準備しています…</p></div></section>`;
@@ -81,10 +98,12 @@ async function sync() {
     if (conditions.status === "fulfilled") Object.assign(world, conditions.value);
     world.ambience = world.weather === "WEATHER UNAVAILABLE" ? "現在地を確認しました。天気情報は今は取得できません。" : `現在の空模様：${world.weather}`;
   } catch { world.ambience = "位置情報なしで世界へ入りました。準備ができたら、もう一度SYNCできます。"; }
+  const detectedEvents = detectWorldEvents(state.world, world, now);
   state.world = world;
   const title = world.weather !== "WEATHER UNAVAILABLE" ? `${world.weather} detected` : "World sync completed";
   const today = dateKey();
-  if (!state.log.some((e) => e.day === today && e.title === title)) state.log.unshift({ id:crypto.randomUUID(), day:today, time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"EVENT", title, detail:world.ambience });
+  if (detectedEvents.length) state.log.unshift(...detectedEvents);
+  else if (!state.log.some((e) => e.day === today && e.title === title)) state.log.unshift({ id:crypto.randomUUID(), day:today, time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"EVENT", title, detail:world.ambience });
   save(); renderSync("WORLD SYNC COMPLETE"); setTimeout(renderHome, 700);
 }
 function renderSync(copy) { clearInterval(homeClock); app.innerHTML = `<section class="boot"><div class="boot-world"><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">world sync in progress</p><div class="progress"><i></i></div><p>${esc(copy)}</p></div></section>`; }
@@ -98,7 +117,7 @@ function renderHome() {
   const now = new Date(); const p = state.player; const events = state.log.filter((e) => e.day === dateKey()).slice(0,3); const nav = navigatorBrief(w, p);
   app.innerHTML = `<div class="shell home-enter" data-page="home"><header class="header"><div><p class="eyebrow">world time</p><p class="clock">${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false})}</p><p class="date">${now.toLocaleDateString([], {weekday:"long",day:"numeric",month:"long"})}</p></div><button id="sync" class="sync glass"><span class="eyebrow">sync</span><time>${w.syncedAt ? new Date(w.syncedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "READY"}</time></button></header>${pageNav("world")}<div class="stack">
   <section class="card glass world-card"><div class="section-head"><p class="eyebrow">world state</p><p class="world-live"><i></i>LIVE</p></div><div class="world-hero"><div class="location-mark">${icon("location")}</div><div class="place"><div><h2>${esc(w.location)}</h2><p class="region">${esc(w.region)}</p></div><span class="temperature">${esc(w.temperature)}°</span></div></div><div class="tiles visual-tiles"><div class="tile"><span class="tile-icon season-icon">${icon("sun")}</span><p class="eyebrow">season</p><b>${esc(w.season)}</b></div><div class="tile"><span class="tile-icon">${icon(phaseIcon(w.phase))}</span><p class="eyebrow">phase</p><b>${esc(w.phase)}</b></div><div class="tile weather-tile"><span class="tile-icon">${icon(weatherIcon(w.weather))}</span><p class="eyebrow">weather</p><b>${esc(w.weather)}</b></div></div><p class="ambience">${esc(w.ambience)}</p></section>
-  <section class="card glass"><div class="section-head"><p class="eyebrow">event / discovery</p><p class="eyebrow">${events.length} detected</p></div>${events.length ? events.map((e) => `<div class="log-entry"><p class="eyebrow">${esc(e.kind)} · ${esc(e.time)}</p><strong>${esc(e.title)}</strong><p>${esc(e.detail)}</p></div>`).join("") : `<div class="event"><i class="signal"></i><p>まだ新しいシグナルはありません。<br>SYNCすると、いまの世界を観測できます。</p></div>`}</section>
+  <section class="card glass"><div class="section-head"><p class="eyebrow">event / discovery</p><p class="event-engine-live"><i></i>AUTO · ${events.length}</p></div>${events.length ? events.map((e) => `<div class="log-entry"><p class="eyebrow">${esc(e.kind)} · ${esc(e.time)}</p><strong>${esc(e.title)}</strong><p>${esc(e.detail)}</p></div>`).join("") : `<div class="event"><i class="signal"></i><p>まだ新しいシグナルはありません。<br>SYNCすると、いまの世界を観測できます。</p></div>`}</section>
   <button class="card glass navigator-preview" data-page="navigator"><div class="navigator-preview-core"><i></i><p class="eyebrow">navigator · ${esc(nav.tag)}</p></div><strong>${esc(nav.title)}</strong><p>${esc(nav.copy)}</p><span>OPEN NAVIGATOR →</span></button>
   <button class="card glass card-button" data-action="player"><div class="player"><div><p class="eyebrow">player</p><h2>PLAYER ONE</h2><p class="region">DAY START: ${esc(state.status?.[dateKey()] || "UNKNOWN")}</p></div><div class="level glass"><span class="eyebrow">lv</span><strong>${p.level}</strong></div></div><div class="bar"><label>exp <span>${p.exp} / 500</span></label><i><span style="width:${p.exp / 5}%"></span></i></div><div class="three">${[["hp",p.hp,"#f4b9cc"],["energy",p.energy,"#bfe5d0"],["focus",p.focus,"#b8e5f2"]].map(([name,value,color]) => `<div class="bar"><label>${name}<span>${value}</span></label><i><span style="width:${value}%;background:${color}"></span></i></div>`).join("")}</div><p class="arrow">OPEN PLAYER →</p></button>
   <section class="card glass"><p class="eyebrow">now playing</p><div class="now"><i class="art"></i><div><p><strong>Untitled Ambient</strong></p><small>YOUR SOUNDTRACK · LOCAL</small></div></div></section>
