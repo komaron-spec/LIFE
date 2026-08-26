@@ -593,7 +593,7 @@ function renderHome() {
   <button class="card glass card-button" data-page="log"><div class="section-head"><p class="eyebrow">calendar log</p><p class="eyebrow">${state.calendar?.events?.length || 0} events</p></div><p class="ambience">Google Calendarから届く、この世界のタイムライン。</p><p class="arrow">OPEN LOG →</p></button></div>
   <nav class="action-dock glass" aria-label="LIFE SYSTEM actions"><button data-page="log"><b>予定を見る</b></button><button data-action="observe"><b>世界を観測</b></button><button data-action="complete"><b>一日を閉じる</b></button></nav></div>`;
   document.querySelector("#sync").addEventListener("click", sync);
-  app.querySelector("#toggle-player-core")?.addEventListener("click", () => { state.coreExpanded = !state.coreExpanded; save(); systemFeedback("select"); renderHome(); });
+  app.querySelector("#toggle-player-core")?.addEventListener("click", () => { const shell = app.querySelector(".core-shell"); const ripple = document.createElement("i"); ripple.className = "core-refraction-ripple"; shell?.append(ripple); state.coreExpanded = !state.coreExpanded; save(); systemFeedback("select"); setTimeout(renderHome, 310); });
   app.querySelector("#close-player-core")?.addEventListener("click", () => { state.coreExpanded = false; save(); systemFeedback("back"); renderHome(); });
   app.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => openView(button.dataset.action)));
   app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
