@@ -33,8 +33,9 @@ function systemFeedback(kind = "select", page = "") {
   const settings = feedbackSettings();
   const categoryPitch = { world:330, player:245, navigator:465, archive:650, log:525, sound:720, system:365 };
   const patterns = { select:[[520,.028,0,"sine"]], confirm:[[430,.035,0,"sine"],[690,.07,.035,"sine"]], enter:[[categoryPitch[page] || 510,.035,0,"triangle"],[(categoryPitch[page] || 510) * 1.32,.065,.035,"sine"]], back:[[510,.035,0,"sine"],[330,.07,.035,"sine"]], scan:[[160,.18,0,"sine"],[220,.12,.06,"triangle"]], lock:[[175,.05,0,"square"]], discovery:[[610,.035,0,"sine"],[820,.055,.04,"sine"],[1040,.09,.085,"sine"]] };
-  if (settings.sound !== false && "AudioContext" in window) {
-    systemAudio ||= new AudioContext(); const context = systemAudio; context.resume().catch(() => {});
+  const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+  if (settings.sound !== false && AudioContextConstructor) {
+    systemAudio ||= new AudioContextConstructor(); const context = systemAudio; context.resume().catch(() => {});
     (patterns[kind] || patterns.select).forEach(([frequency,duration,offset,wave]) => { const oscillator = context.createOscillator(); const gain = context.createGain(); const start = context.currentTime + offset; oscillator.type = wave; oscillator.frequency.setValueAtTime(frequency, start); gain.gain.setValueAtTime(.0001, start); gain.gain.exponentialRampToValueAtTime(.026, start + .008); gain.gain.exponentialRampToValueAtTime(.0001, start + duration); oscillator.connect(gain).connect(context.destination); oscillator.start(start); oscillator.stop(start + duration + .015); });
   }
   if (settings.haptics !== false && navigator.vibrate) navigator.vibrate(kind === "confirm" || kind === "discovery" ? [8,18,14] : kind === "lock" ? [18,30,9] : [8]);
