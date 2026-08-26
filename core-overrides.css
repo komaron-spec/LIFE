@@ -196,3 +196,28 @@ body::after { opacity:.36; }
 .registered-areas button { margin-left:auto; width:25px; height:25px; border:0; border-radius:50%; color:#8197b0; background:rgba(255,255,255,.28); font-size:16px; }
 @keyframes world-transition-refract { from { opacity:0; transform:rotate(-24deg) translateX(-45%) scale(.8); } 30% { opacity:1; } to { opacity:0; transform:rotate(-24deg) translateX(38%) scale(1.15); } }
 @keyframes world-transition-out { 0%,58% { opacity:1; } 100% { opacity:0; visibility:hidden; } }
+
+/* PLAY DATA: the save file is alive, but quiet enough to feel like system metadata. */
+.session-live-chip { display:flex; align-items:center; justify-content:center; gap:6px; margin:4px 0 12px; color:#8299b5; font:8px ui-monospace,monospace; letter-spacing:.1em; }
+.session-live-chip i,.play-data-card .section-head > span i { width:6px; height:6px; border-radius:50%; background:#a9e3d4; box-shadow:0 0 9px rgba(143,220,193,.9); animation:session-pulse 2.2s ease-in-out infinite; }
+.play-data-card > strong { display:block; margin:7px 0 13px; color:#5e7a9d; font-size:18px; }
+.play-data-card .section-head > span { display:flex; align-items:center; gap:5px; color:#7895af; font:8px ui-monospace,monospace; letter-spacing:.09em; }
+.play-data-main { display:grid; grid-template-columns:92px 1fr; gap:7px; padding:12px; border:1px solid rgba(255,255,255,.64); border-radius:18px; background:linear-gradient(135deg,rgba(255,255,255,.33),rgba(207,234,255,.17),rgba(235,214,255,.15)); }
+.play-data-main div { display:grid; align-content:center; gap:4px; }
+.play-data-main small,.play-data-grid > span,.daily-session small { color:#91a3b9; font:8px ui-monospace,monospace; letter-spacing:.08em; }
+.play-data-main b { color:#6580a3; font:500 23px/.95 ui-monospace,monospace; letter-spacing:-.08em; white-space:nowrap; }
+.play-data-main div:last-child b { font-size:15px; letter-spacing:-.05em; }
+.play-data-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:10px; }
+.play-data-grid > span { display:grid; gap:3px; padding:8px; border-top:1px solid rgba(139,175,210,.16); }
+.play-data-grid b { color:#718aa9; font:9px ui-monospace,monospace; letter-spacing:.04em; }
+.daily-session { display:grid; grid-template-columns:1.45fr repeat(3,.65fr); gap:5px; margin-top:10px; padding:10px; border-radius:16px; background:rgba(255,255,255,.22); box-shadow:inset 0 1px rgba(255,255,255,.65); }
+.daily-session > div { display:grid; align-content:center; gap:2px; text-align:center; }
+.daily-session > div:first-child { text-align:left; }
+.daily-session strong,.daily-session b { color:#6684a5; font:600 13px ui-monospace,monospace; }
+.daily-session span { color:#91a2b8; font:7px ui-monospace,monospace; letter-spacing:.06em; }
+.play-init { display:flex; align-items:end; gap:8px; margin-top:13px; }
+.play-init label { display:grid; flex:1; gap:5px; color:#91a4ba; font:8px ui-monospace,monospace; letter-spacing:.08em; }
+.play-init input { width:100%; padding:9px; border:1px solid rgba(255,255,255,.7); border-radius:12px; color:#7189a8; background:rgba(255,255,255,.3); font:11px ui-monospace,monospace; }
+.play-init button { flex:none; padding:10px 11px; white-space:nowrap; }
+.session-history { margin:12px 0 0; padding-top:10px; border-top:1px solid rgba(139,175,210,.16); color:#91a3b9; font:8px ui-monospace,monospace; letter-spacing:.05em; }
+@keyframes session-pulse { 50% { transform:scale(.72); opacity:.56; box-shadow:0 0 3px rgba(143,220,193,.5); } }
