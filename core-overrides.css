@@ -66,3 +66,31 @@ body::after { opacity:.36; }
   border-color:rgba(255,255,255,.96) !important;
   box-shadow:inset 1px 1px rgba(255,255,255,1),inset -1px -1px rgba(156,188,220,.11),0 19px 38px -29px rgba(91,119,169,.42) !important;
 }
+
+/* Keep the home CORE luminous even when night/weather mood classes are active. */
+.player-core .core-center {
+  background:radial-gradient(circle at 31% 20%,rgba(255,255,255,1) 0%,rgba(248,253,255,.96) 24%,rgba(220,242,255,.70) 61%,rgba(236,221,255,.62) 100%) !important;
+  border-color:rgba(255,255,255,.98) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,1),inset 0 -1px 0 rgba(154,190,220,.12),0 0 0 9px rgba(255,255,255,.28),0 0 36px rgba(164,211,246,.48) !important;
+  filter:none !important;
+}
+.player-core .core-shell { filter:none !important; }
+
+/* The decorative level object has been removed from layout entirely; mobile Safari cannot stretch it vertically. */
+.player-portrait { display:block !important; min-height:0 !important; }
+.player-portrait > .player-level-ring,
+.player-portrait > :first-child.player-level-ring,
+.player-portrait .player-level-ring,
+.player-portrait .level,
+.build-sigil {
+  position:absolute !important;
+  width:0 !important;
+  height:0 !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
