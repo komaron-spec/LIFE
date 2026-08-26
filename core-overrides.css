@@ -1,2 +1,15 @@
 .player-core > .core-weather { position:absolute; z-index:2; }
 .player-core > .core-expanded { position:absolute; z-index:5; }
+
+/* The world behind the interface: light is visible through every glass layer. */
+body { background:radial-gradient(62rem 42rem at -14% -9%,rgba(182,225,255,.72),transparent 56%),radial-gradient(57rem 39rem at 112% 85%,rgba(224,193,255,.56),transparent 58%),radial-gradient(45rem 34rem at 52% 43%,rgba(255,255,255,.84),transparent 69%),#e9eef8; }
+body::before,body::after { position:fixed; inset:0; z-index:0; content:""; pointer-events:none; }
+body::before { background:linear-gradient(125deg,transparent 25%,rgba(255,255,255,.31) 45%,transparent 62%); filter:blur(18px); animation:world-light-drift 18s ease-in-out infinite alternate; }
+body::after { background-image:linear-gradient(rgba(125,171,211,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(125,171,211,.055) 1px,transparent 1px); background-size:36px 36px; mask-image:radial-gradient(ellipse at 50% 34%,#000,transparent 76%); opacity:.44; }
+#app { position:relative; z-index:1; }
+.glass { background:linear-gradient(132deg,rgba(255,255,255,.47),rgba(255,255,255,.16) 45%,rgba(201,227,255,.22) 73%,rgba(232,207,255,.19)) !important; border-color:rgba(255,255,255,.84) !important; box-shadow:inset 0 1px 1px rgba(255,255,255,.98),inset 0 -1px rgba(125,151,201,.12),0 22px 56px -42px rgba(55,79,132,.52),0 0 0 1px rgba(204,230,255,.12) !important; backdrop-filter:blur(42px) saturate(165%) brightness(1.08) !important; -webkit-backdrop-filter:blur(42px) saturate(165%) brightness(1.08) !important; }
+.card::before,.detail-card::before { background:linear-gradient(118deg,rgba(255,255,255,.6),transparent 25%,transparent 66%,rgba(187,222,255,.25)) !important; }
+.player-core { background:radial-gradient(circle at 50% 39%,rgba(255,255,255,.77),rgba(201,230,255,.22) 37%,transparent 66%),radial-gradient(circle at 8% 92%,rgba(228,195,255,.28),transparent 41%),linear-gradient(145deg,rgba(255,255,255,.4),rgba(197,221,255,.17)) !important; border-color:rgba(255,255,255,.87) !important; box-shadow:inset 0 1px rgba(255,255,255,.96),inset 0 -1px rgba(129,164,213,.1),0 29px 70px -44px rgba(58,84,139,.54) !important; backdrop-filter:blur(18px) saturate(145%); }
+.core-center,.core-objective,.hud-mission > * { background:linear-gradient(135deg,rgba(255,255,255,.65),rgba(220,241,255,.29),rgba(235,215,255,.24)) !important; border-color:rgba(255,255,255,.9) !important; }
+.page-nav,.action-dock { background:linear-gradient(135deg,rgba(255,255,255,.45),rgba(209,231,255,.18),rgba(237,218,255,.2)) !important; backdrop-filter:blur(38px) saturate(170%) !important; }
+@keyframes world-light-drift { to { transform:translate3d(4%,2%,0) scale(1.08); opacity:.72; } }
