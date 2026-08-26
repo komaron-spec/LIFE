@@ -48,7 +48,7 @@ async function requestLifeNotifications() {
   if (!("Notification" in window)) return "unsupported";
   const permission = await Notification.requestPermission(); save(); return permission;
 }
-function checkLifeReminders() {
+function legacyCheckLifeReminders() {
   const settings = notificationSettings(); if (notificationPermission() !== "granted") return;
   const now = new Date(); const stamp = dateKey(); const hour = now.getHours(); const minute = now.getMinutes();
   const sendOnce = (key,title,body) => { if (settings.sent[key]) return; settings.sent[key] = now.toISOString(); save(); showLifeNotification(title, body, key); };
