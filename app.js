@@ -137,6 +137,29 @@ function messageFromWorldEvent(event) {
   if (/RAIN|WEATHER/.test(event.title)) return { level:0, title:"WORLD STATE UPDATED", detail:event.detail, target:"world" };
   return { level:1, title:event.title, detail:event.detail, target:"world" };
 }
+const titleCatalog = [
+  { id:"first-link", name:"世界へ接続した者", rarity:"COMMON", condition:() => Boolean(state.world?.syncedAt) },
+  { id:"first-area", name:"境界を越えた者", rarity:"COMMON", condition:() => Object.keys(archiveState().prefectures).length >= 1 },
+  { id:"mission-runner", name:"約束を完了する者", rarity:"UNCOMMON", condition:() => worldEventMemory().cleared >= 1 },
+  { id:"night-explorer", name:"夜を歩く者", rarity:"UNCOMMON", condition:() => /NIGHT/.test(state.world?.phase || "") },
+  { id:"rain-walker", name:"雨の世界を進む者", rarity:"UNCOMMON", condition:() => /RAIN|DRIZZLE|THUNDER/.test(state.world?.weather || "") },
+  { id:"atlas-awakening", name:"地図を広げる者", rarity:"RARE", condition:() => Object.keys(archiveState().prefectures).length >= 3 }
+];
+const titleState = () => (state.titles ||= { unlocked:{} });
+const activeTitle = () => titleCatalog.find((title) => titleState().unlocked[title.id]) || null;
+function evaluateTitleUnlocks(now = new Date()) {
+  const titles = titleState();
+  titleCatalog.forEach((title) => {
+    if (titles.unlocked[title.id] || !title.condition()) return;
+    titles.unlocked[title.id] = { acquiredAt:now.toISOString(), rarity:title.rarity };
+    state.log.unshift({ id:crypto.randomUUID(), day:dateKey(), time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"TITLE", title:"TITLE ACQUIRED", detail:`《${title.name}》 / ${title.rarity}` });
+    recordSystemMessage({ level:3, title:"TITLE ACQUIRED", detail:`《${title.name}》`, target:"player" });
+  });
+}
+function renderTitleCollection() {
+  const unlocked = titleState().unlocked;
+  return `<section class="detail-card glass title-collection"><div class="section-head"><p class="eyebrow">equipped history</p><span>${Object.keys(unlocked).length} / ${titleCatalog.length}</span></div><strong>称号コレクション</strong><p>現実で条件を満たしたときだけ、PLAYERの履歴に加わります。</p><div>${titleCatalog.map((title) => unlocked[title.id] ? `<article class="unlocked"><i>✦</i><span><b>${esc(title.name)}</b><small>${title.rarity} · ${new Date(unlocked[title.id].acquiredAt).toLocaleDateString("ja-JP")}</small></span></article>` : `<article class="locked"><i>?</i><span><b>UNKNOWN TITLE</b><small>条件はまだ観測されていません</small></span></article>`).join("")}</div></section>`;
+}
 const skillState = () => { const skills = (state.skills ||= { selected:"human-basics", zoom:.72, mode:"build" }); skills.records ||= {}; skills.history ||= []; skills.mode ||= "build"; return skills; };
 const skillStatusLabel = { locked:"未解放", known:"知っている", practising:"練習中", acquired:"習得済み", passive:"無意識に使える", dormant:"休眠中", mastered:"得意分野" };
 function skillStatus(node) {
@@ -306,7 +329,7 @@ function playerProfile() {
   if (!effects.length) effects.push(["BALANCED", "いまの状態を維持しています", "calm"]);
   return {
     name: state.profile?.name || "PLAYER ONE",
-    title: p.level >= 5 ? "WORLD EXPLORER" : p.level >= 3 ? "FIELD WALKER" : "WORLD WALKER",
+    title: activeTitle()?.name || (p.level >= 5 ? "WORLD EXPLORER" : p.level >= 3 ? "FIELD WALKER" : "WORLD WALKER"),
     effects,
     abilities: [["OBSERVATION", Math.min(99, 34 + records * 3), "世界の変化に気づく力"], ["EXPLORATION", Math.min(99, 24 + discoveries * 11), "新しい場所を見つける力"], ["RECORDING", Math.min(99, 28 + records * 5), "世界を記録する力"]]
   };
@@ -411,6 +434,22 @@ function renderWorldActivityTimeline() {
   const memory = worldEventMemory();
   return `<section class="detail-card glass world-activity-timeline"><div class="section-head"><p class="eyebrow">today's world activity</p><span>${items.length} EVENTS</span></div><p class="status-intro">予定だけではなく、SYNCで検出された移動・環境変化・DISCOVERYもここに積み重なります。</p><div>${items.length ? items.map((item) => `<article><time>${esc(item.time)}</time><span>${esc(item.kind)}</span><strong>${esc(item.title)}</strong><p>${esc(item.detail || "")}</p></article>`).join("") : `<p class="timeline-empty">まだWORLD EVENTはありません。SYNCすると、現実で起きた変化を検出します。</p>`}</div><small>SESSION TOTAL · ${memory.total} EVENTS / ${memory.discoveries} DISCOVERIES / ${memory.cleared} CLEARED</small></section>`;
 }
+function bindSkillNetworkGestures() {
+  const viewport = app.querySelector("#skill-network-viewport");
+  if (!viewport) return;
+  let gesture = null;
+  const distance = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+  const applyZoom = (next) => {
+    const skills = skillState(); skills.zoom = Math.max(.5, Math.min(2.25, next));
+    const scaler = viewport.querySelector(".skill-network-scaler"); const stage = viewport.querySelector(".skill-network-stage"); const output = app.querySelector(".network-controls span");
+    if (scaler) { scaler.style.width = `${Math.round(1000 * skills.zoom)}px`; scaler.style.height = `${Math.round(720 * skills.zoom)}px`; }
+    stage?.style.setProperty("--network-scale", skills.zoom);
+    if (output) output.textContent = `${Math.round(skills.zoom * 100)}%`;
+  };
+  viewport.addEventListener("touchstart", (event) => { if (event.touches.length === 2) gesture = { distance:distance(event.touches), zoom:Number(skillState().zoom) || .72 }; }, { passive:true });
+  viewport.addEventListener("touchmove", (event) => { if (!gesture || event.touches.length !== 2) return; event.preventDefault(); applyZoom(gesture.zoom * distance(event.touches) / gesture.distance); }, { passive:false });
+  viewport.addEventListener("touchend", (event) => { if (gesture && event.touches.length < 2) { gesture = null; save(); } }, { passive:true });
+}
 function boot() {
   clearInterval(homeClock);
   app.innerHTML = `<section class="boot"><div class="boot-world"><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">real world interface</p><div class="progress"><i></i></div><p id="boot-copy">世界との接続を準備しています…</p></div></section>`;
@@ -482,6 +521,7 @@ async function sync() {
   if (!detectedEvents.length) recordSystemMessage({ level:0, title:"WORLD SYNC COMPLETE", detail:world.location, target:"world" });
   const areaCount = Object.keys(archiveState().prefectures).length;
   if (areaCount >= 3 && !state.systemFlags?.atlasThree) { state.systemFlags ||= {}; state.systemFlags.atlasThree = true; recordSystemMessage({ level:3, title:"A condition has been fulfilled.", detail:"Long-term flag updated. Tap to reveal.", target:"archive" }); }
+  evaluateTitleUnlocks(now);
   save(); if (state.lastDiscovery) systemFeedback("discovery"); renderSync(detectedEvents.length ? `${detectedEvents.length} NEW EVENT${detectedEvents.length > 1 ? "S" : ""} DETECTED` : "WORLD SYNC COMPLETE"); setTimeout(renderHome, detectedEvents.length ? 1350 : 700);
 }
 function applyWorldAtmosphere(world) {
@@ -547,7 +587,7 @@ function navigate(page) {
 }
 
 function renderSkillsPage() {
-  const skills = skillState(); const selected = skillNodes.find((node) => node.id === skills.selected) || skillNodes[0]; const nodeById = new Map(skillNodes.map((node) => [node.id,node])); const status = skillStatus(selected); const acquired = skillNodes.filter((node) => skillStatus(node) !== "locked"); const passive = skillNodes.filter((node) => skillStatus(node) === "passive"); const available = skillNodes.filter((node) => skillStatus(node) === "locked" && node.requires.length && node.requires.every((id) => skillStatus(nodeById.get(id) || {}) !== "locked")).slice(0,4); const zoom = Math.max(.55, Math.min(1.1, Number(skills.zoom) || .72));
+  const skills = skillState(); const selected = skillNodes.find((node) => node.id === skills.selected) || skillNodes[0]; const nodeById = new Map(skillNodes.map((node) => [node.id,node])); const status = skillStatus(selected); const acquired = skillNodes.filter((node) => skillStatus(node) !== "locked"); const passive = skillNodes.filter((node) => skillStatus(node) === "passive"); const available = skillNodes.filter((node) => skillStatus(node) === "locked" && node.requires.length && node.requires.every((id) => skillStatus(nodeById.get(id) || {}) !== "locked")).slice(0,4); const zoom = Math.max(.5, Math.min(2.25, Number(skills.zoom) || .72));
   const links = skillNodes.flatMap((node) => node.requires.map((id) => { const source = nodeById.get(id); return source ? `<line x1="${source.x}" y1="${source.y}" x2="${node.x}" y2="${node.y}"/>` : ""; })).join("");
   return `<section class="page-hero skills-hero"><p class="eyebrow">life skill ontology / v1</p><h1>SKILL NETWORK</h1><p>現実の経験から、自分というキャラクターの能力接続を見つけていく。</p><div class="skill-stat"><span><b>${skillNodes.length}</b><small>DATABASE NODES</small></span><span><b>${acquired.length}</b><small>CONFIRMED</small></span><span><b>${passive.length}</b><small>PASSIVE</small></span></div></section><section class="skill-network-card glass"><div class="skill-network-head"><div><p class="eyebrow">player constellation</p><strong>DRAG TO EXPLORE</strong></div><div class="network-controls"><button data-skill-zoom="-.1" aria-label="ズームアウト">−</button><span>${Math.round(zoom * 100)}%</span><button data-skill-zoom=".1" aria-label="ズームイン">＋</button></div></div><p class="network-hint">指で地図を動かして、ノードをタップ。淡い光は確認済み、霧の中は未解放の能力です。</p><div class="skill-network-viewport" id="skill-network-viewport"><div class="skill-network-scaler" style="width:${Math.round(1000 * zoom)}px;height:${Math.round(720 * zoom)}px"><div class="skill-network-stage" style="--network-scale:${zoom}"><svg class="skill-links" viewBox="0 0 1000 720" aria-hidden="true">${links}</svg>${skillNodes.map((node) => `<button class="skill-node ${node.kind} ${skillStatus(node)} ${selected.id === node.id ? "is-selected" : ""}" style="--x:${node.x}px;--y:${node.y}px" data-skill-node="${node.id}" aria-label="${esc(node.label)}"><i></i><span>${esc(node.label)}</span></button>`).join("")}</div></div></div><div class="skill-network-legend"><span><i class="passive"></i>PASSIVE</span><span><i class="acquired"></i>CONFIRMED</span><span><i class="locked"></i>UNKNOWN</span><span><i class="composite"></i>COMPOSITE</span></div></section><section class="detail-card glass skill-detail ${status}"><div class="section-head"><p class="eyebrow">${esc(selected.domain)}</p><span>${status.toUpperCase()}</span></div><h2>${esc(selected.label)}</h2><p>${skillEvidence(selected)}</p><div class="skill-requirements"><p>CONNECTIONS</p>${selected.requires.length ? selected.requires.map((id) => { const required = nodeById.get(id); const requiredStatus = skillStatus(required || {}); return `<span class="${requiredStatus}"><i></i>${esc(required?.label || id)}<small>${requiredStatus.toUpperCase()}</small></span>`; }).join("") : `<span class="passive"><i></i>PLAYER BASE<small>ALWAYS ACTIVE</small></span>`}</div></section><section class="detail-card glass unlock-card"><div class="section-head"><p class="eyebrow">available connections</p><span>${available.length} NEARBY</span></div><p class="status-intro">今の記録から、前提条件に近い未解放ノード。これは達成を強制するクエストではなく、次に見つけられる世界の輪郭です。</p><div class="available-unlocks">${available.length ? available.map((node) => `<button data-skill-node="${node.id}"><i></i><span>${esc(node.label)}<small>${esc(node.domain)}</small></span><b>VIEW</b></button>`).join("") : `<p>まだ十分な記録がありません。WORLD SYNCやCALENDARの活動が増えると接続候補を表示します。</p>`}</div></section><section class="detail-card glass ontology-card"><p class="eyebrow">open-ended database</p><strong>${skillDomains.length} DOMAINS · ${skillNodes.length} NODES</strong><p>このネットワークは端末に同梱された軽量DBです。専門技能・職能・趣味を増やしていける構造なので、今後も新しい枝を追加できます。</p><div>${["HUMAN BASICS","LANGUAGE","DIGITAL","WORLD","CREATIVE","SCIENCE"].map((label) => `<span>${label}</span>`).join("")}</div></section>`;
 }
@@ -596,6 +636,7 @@ function renderPage(page) {
   if (page === "sound") { const suggested = soundtrackFor(w); const selected = soundtrackLibrary.find((track) => track.id === state.soundtrackId) || suggested; content = `<section class="page-hero sound-hero ${suggested.tone}"><p class="eyebrow">real world soundtrack</p><h1>SOUND</h1><p>いまの現実に、世界の音楽を重ねる。</p><div class="sound-visual"><i></i><i></i><i></i><i></i><i></i></div></section><section class="sound-player glass ${suggested.tone}"><div class="section-head"><p class="eyebrow">world recommendation</p><span>AUTO</span></div><h2>${esc(suggested.scene)}</h2><p>${esc(suggested.role)} · いまの時間と場所から提案</p><iframe title="${esc(suggested.scene)} Spotify player" src="https://open.spotify.com/embed/track/${suggested.track}?utm_source=generator" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe><button class="primary-action" id="use-recommendation">SET AS NOW PLAYING</button></section>${selected.id !== suggested.id ? `<section class="detail-card glass selected-track"><p class="eyebrow">now playing</p><strong>${esc(selected.scene)}</strong><span>${esc(selected.role)}</span></section>` : ""}<section class="detail-card glass soundtrack-library"><div class="section-head"><p class="eyebrow">my soundtrack</p><span>${soundtrackLibrary.length} SCENES</span></div><p class="status-intro">シーンを選ぶと、いまのBGMとして固定できます。</p><div class="track-list">${soundtrackLibrary.map((track) => `<button class="track-choice ${selected.id === track.id ? "selected" : ""}" data-track="${track.id}"><i class="${track.tone}"></i><div><b>${esc(track.scene)}</b><span>${esc(track.role)}</span></div><em>${selected.id === track.id ? "NOW" : "SELECT"}</em></button>`).join("")}</div><button class="subtle-action" id="auto-soundtrack">RETURN TO AUTO SUGGESTION</button></section>`; }
   if (page === "system") { const calendar = state.calendar; const archive = archiveState(); const feedback = feedbackSettings(); content = `<section class="page-hero"><p class="eyebrow">life system settings</p><h1>SYSTEM</h1><p>現実とLIFE SYSTEMをつなぐ設定。</p><div class="system-status"><i></i><span>WORLD INTERFACE<br><b>ONLINE</b></span></div></section><section class="detail-card glass calendar-link"><div class="section-head"><p class="eyebrow">google calendar</p><span>${calendar ? "LINKED" : "NOT CONNECTED"}</span></div><strong>${calendar ? "WORLD SCHEDULE READY" : "CONNECT YOUR SCHEDULE"}</strong><p>${calendar ? `${calendar.calendars?.length || 1} calendars · ${calendar.events.length} events · ${new Date(calendar.syncedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} synced` : "すべてのGoogleカレンダーを読み取り、PLAYER LOGとWORLD MISSIONとして表示します。"}</p><button class="primary-action" id="connect-calendar">${calendar ? "REFRESH ALL CALENDARS" : "CONNECT GOOGLE CALENDAR"}</button></section><section class="detail-card glass system-feedback"><div class="section-head"><p class="eyebrow">system feedback</p><span>SOUND LANGUAGE</span></div><strong>操作音</strong><p>選択、階層移動、WORLD SYNC、DISCOVERYに小さな音の反応を返します。</p><div><button class="subtle-action" id="toggle-sound">SOUND ${feedback.sound === false ? "OFF" : "ON"}</button></div></section><section class="detail-card glass save-data"><div class="section-head"><p class="eyebrow">save data</p><span>LOCAL BACKUP</span></div><strong>あなたの世界を保存する</strong><p>ATLASの攻略、PLAYER、設定を1つのセーブファイルに書き出します。都道府県 ${Object.keys(archive.prefectures).length}件・国 ${Object.keys(archive.countries).length}件を保存対象にしています。</p><div><button class="subtle-action" id="export-save">SAVE DATAを書き出す</button><button class="subtle-action" id="import-save">SAVE DATAを復元する</button><input id="import-save-file" type="file" accept="application/json,.json" hidden></div></section><section class="detail-card glass system-list"><button id="system-sync"><span>WORLD SYNC</span><small>現在地・天気を更新</small><b>→</b></button><button id="system-status"><span>DAY START STATUS</span><small>今日の状態を選び直す</small><b>→</b></button><div><span>PLAYER LOG</span><small>ALL GOOGLE CALENDARS · 手入力なし</small></div></section>`; }
   if (page === "system") content += `<section class="detail-card glass system-log-link"><div class="section-head"><p class="eyebrow">game engine history</p><span>${systemLog().length} EVENTS</span></div><strong>SYSTEM LOG</strong><p>WORLD SYNC・ATLAS・スキル更新から発生したSYSTEM MESSAGEを確認します。</p><button class="primary-action" data-page="systemlog">SYSTEM LOGを開く</button></section>`;
+  if (page === "system") content += renderTitleCollection();
   if (page === "system") content += renderNotificationSettings();
   if (page === "system") content += renderNavigatorSettings();
   if (page === "__player") page = "player";
@@ -633,7 +674,8 @@ function renderPage(page) {
   app.querySelector("#skill-search")?.addEventListener("input", (event) => { skillState().query = event.target.value; save(); renderPage("skills"); });
   app.querySelector("#skill-domain")?.addEventListener("change", (event) => { skillState().domain = event.target.value; save(); renderPage("skills"); });
   app.querySelector("#save-skill-record")?.addEventListener("click", () => { const skills = skillState(); const node = skillNodes.find((item) => item.id === skills.selected); if (!node) return; const previous = skillStatus(node); const status = app.querySelector("#skill-status-select").value; const note = app.querySelector("#skill-note").value.trim(); skills.records[node.id] = { status, note, updatedAt:new Date().toISOString() }; skills.history.unshift({ id:crypto.randomUUID(), nodeId:node.id, label:node.label, status, note, date:new Date().toLocaleDateString("en-CA") }); skills.history = skills.history.slice(0,200); if (status !== previous) recordSystemMessage({ level:["passive","mastered"].includes(status) ? 3 : status === "acquired" ? 2 : 1, title:status === "mastered" ? "SKILL MASTERED" : status === "passive" ? "NEW PASSIVE SKILL DETECTED" : "SKILL UPDATE", detail:`${node.label} → ${skillStatusLabel[status]}`, target:"skills" }); save(); systemFeedback(status === "locked" ? "lock" : "discovery"); skills.mode = "history"; renderPage("skills"); });
-  app.querySelectorAll("[data-skill-zoom]").forEach((button) => button.addEventListener("click", () => { const skills = skillState(); skills.zoom = Math.max(.55, Math.min(1.1, (Number(skills.zoom) || .72) + Number(button.dataset.skillZoom))); save(); renderPage("skills"); }));
+  app.querySelectorAll("[data-skill-zoom]").forEach((button) => button.addEventListener("click", () => { const skills = skillState(); skills.zoom = Math.max(.5, Math.min(2.25, (Number(skills.zoom) || .72) + Number(button.dataset.skillZoom))); save(); renderPage("skills"); }));
+  bindSkillNetworkGestures();
   app.querySelectorAll("[data-track]").forEach((button) => button.addEventListener("click", () => { state.soundtrackId = button.dataset.track; delete state.soundtrack; save(); renderPage("sound"); }));
   app.querySelector("#use-recommendation")?.addEventListener("click", () => { state.soundtrackId = soundtrackFor(w).id; delete state.soundtrack; save(); renderPage("sound"); });
   app.querySelector("#auto-soundtrack")?.addEventListener("click", () => { delete state.soundtrackId; delete state.soundtrack; save(); renderPage("sound"); });

@@ -104,3 +104,20 @@ body::after { opacity:.36; }
 .world-activity-timeline article strong { color:#536d91; font-size:11px; font-weight:650; }
 .world-activity-timeline article p { grid-column:3; margin:4px 0 0; color:#8094ae; font-size:10px; line-height:1.45; }
 .world-activity-timeline > small { display:block; margin-top:13px; padding-top:11px; border-top:1px solid rgba(135,169,205,.16); color:#8498b2; font:8px ui-monospace,monospace; letter-spacing:.05em; }
+
+/* Titles are quiet rewards: visible as a collection, not as noisy daily counters. */
+.title-collection > strong { display:block; margin-top:7px; color:#5c7599; font-size:18px; }
+.title-collection > p { margin:7px 0 13px; color:#7c90aa; font-size:11px; }
+.title-collection > div:last-child { display:grid; gap:6px; }
+.title-collection article { display:flex; align-items:center; gap:10px; padding:10px; border:1px solid rgba(255,255,255,.62); border-radius:15px; }
+.title-collection article i { display:grid; flex:none; place-items:center; width:25px; height:25px; border-radius:50%; font:12px ui-monospace,monospace; font-style:normal; }
+.title-collection article span { display:grid; gap:2px; }
+.title-collection article b { color:#627c9f; font-size:11px; }
+.title-collection article small { color:#8a9bb2; font:8px ui-monospace,monospace; letter-spacing:.04em; }
+.title-collection .unlocked { background:linear-gradient(135deg,rgba(255,255,255,.48),rgba(225,241,255,.25),rgba(241,225,255,.25)); box-shadow:inset 0 1px rgba(255,255,255,.8); }
+.title-collection .unlocked i { background:linear-gradient(135deg,#fff5d9,#cfeeff 58%,#e8d2ff); color:#8a78aa; box-shadow:0 0 13px rgba(205,178,244,.48); }
+.title-collection .locked { opacity:.56; background:rgba(255,255,255,.18); }
+.title-collection .locked i { background:rgba(211,222,235,.45); color:#8294ad; }
+
+/* One finger pans the galaxy; two fingers directly change its scale. */
+.skill-network-viewport { touch-action:pan-x pan-y !important; overscroll-behavior:contain; }
