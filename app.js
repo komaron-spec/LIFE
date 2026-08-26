@@ -19,6 +19,7 @@ const icon = (name) => {
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.haze}</svg>`;
 };
+const pageNav = (active) => `<nav class="page-nav glass" aria-label="LIFE SYSTEM navigation">${[["world","WORLD"],["player","PLAYER"],["log","LOG"],["sound","SOUND"],["system","SYSTEM"]].map(([name,label]) => `<button class="${active === name ? "is-active" : ""}" data-page="${name}" aria-current="${active === name ? "page" : "false"}">${label}</button>`).join("")}</nav>`;
 function weatherIcon(weather) { if (/RAIN|DRIZZLE|SHOWER|THUNDER/.test(weather)) return "rain"; if (/CLEAR/.test(weather)) return "sun"; if (/CLOUD|OVERCAST/.test(weather)) return "cloud"; return "haze"; }
 function phaseIcon(value) { return /NIGHT/.test(value) ? "moon" : /MORNING|AFTERNOON|EVENING/.test(value) ? "clock" : "clock"; }
 
@@ -83,7 +84,7 @@ function showStatus() {
 function renderHome() {
   const w = state.world || { location:"WORLD NOT SYNCED", region:"SYNCを押して世界に入る", weather:"UNKNOWN", temperature:"—", phase:phase(new Date().getHours()), season:season(new Date().getMonth()), ambience:"最初のWORLD SYNCを待っています。" };
   const now = new Date(); const p = state.player; const events = state.log.filter((e) => e.day === dateKey()).slice(0,3);
-  app.innerHTML = `<div class="shell home-enter"><header class="header"><div><p class="eyebrow">world time</p><p class="clock">${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false})}</p><p class="date">${now.toLocaleDateString([], {weekday:"long",day:"numeric",month:"long"})}</p></div><button id="sync" class="sync glass"><span class="eyebrow">sync</span><time>${w.syncedAt ? new Date(w.syncedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "READY"}</time></button></header><div class="stack">
+  app.innerHTML = `<div class="shell home-enter" data-page="home"><header class="header"><div><p class="eyebrow">world time</p><p class="clock">${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false})}</p><p class="date">${now.toLocaleDateString([], {weekday:"long",day:"numeric",month:"long"})}</p></div><button id="sync" class="sync glass"><span class="eyebrow">sync</span><time>${w.syncedAt ? new Date(w.syncedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "READY"}</time></button></header>${pageNav("world")}<div class="stack">
   <section class="card glass world-card"><div class="section-head"><p class="eyebrow">world state</p><p class="world-live"><i></i>LIVE</p></div><div class="world-hero"><div class="location-mark">${icon("location")}</div><div class="place"><div><h2>${esc(w.location)}</h2><p class="region">${esc(w.region)}</p></div><span class="temperature">${esc(w.temperature)}°</span></div></div><div class="tiles visual-tiles"><div class="tile"><span class="tile-icon season-icon">${icon("sun")}</span><p class="eyebrow">season</p><b>${esc(w.season)}</b></div><div class="tile"><span class="tile-icon">${icon(phaseIcon(w.phase))}</span><p class="eyebrow">phase</p><b>${esc(w.phase)}</b></div><div class="tile weather-tile"><span class="tile-icon">${icon(weatherIcon(w.weather))}</span><p class="eyebrow">weather</p><b>${esc(w.weather)}</b></div></div><p class="ambience">${esc(w.ambience)}</p></section>
   <section class="card glass"><div class="section-head"><p class="eyebrow">event / discovery</p><p class="eyebrow">${events.length} detected</p></div>${events.length ? events.map((e) => `<div class="log-entry"><p class="eyebrow">${esc(e.kind)} · ${esc(e.time)}</p><strong>${esc(e.title)}</strong><p>${esc(e.detail)}</p></div>`).join("") : `<div class="event"><i class="signal"></i><p>まだ新しいシグナルはありません。<br>SYNCすると、いまの世界を観測できます。</p></div>`}</section>
   <button class="card glass card-button" data-action="player"><div class="player"><div><p class="eyebrow">player</p><h2>PLAYER ONE</h2><p class="region">DAY START: ${esc(state.status?.[dateKey()] || "UNKNOWN")}</p></div><div class="level glass"><span class="eyebrow">lv</span><strong>${p.level}</strong></div></div><div class="bar"><label>exp <span>${p.exp} / 500</span></label><i><span style="width:${p.exp / 5}%"></span></i></div><div class="three">${[["hp",p.hp,"#f4b9cc"],["energy",p.energy,"#bfe5d0"],["focus",p.focus,"#b8e5f2"]].map(([name,value,color]) => `<div class="bar"><label>${name}<span>${value}</span></label><i><span style="width:${value}%;background:${color}"></span></i></div>`).join("")}</div><p class="arrow">OPEN PLAYER →</p></button>
@@ -92,6 +93,7 @@ function renderHome() {
   <nav class="action-dock glass" aria-label="LIFE SYSTEM actions"><button data-action="record"><b>記録する</b></button><button data-action="observe"><b>世界を観測</b></button><button data-action="complete"><b>一日を閉じる</b></button></nav></div>`;
   document.querySelector("#sync").addEventListener("click", sync);
   app.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => openView(button.dataset.action)));
+  app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
   app.querySelectorAll(".header, .stack > .card, .action-dock").forEach((element, index) => element.style.setProperty("--enter-delay", `${index * 75}ms`));
   clearInterval(homeClock);
   homeClock = setInterval(() => {
@@ -101,6 +103,33 @@ function renderHome() {
     if (clock) clock.textContent = nowLive.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit", hour12:false });
     if (date) date.textContent = nowLive.toLocaleDateString([], { weekday:"long", day:"numeric", month:"long" });
   }, 1000);
+}
+
+function navigate(page) {
+  const screen = app.querySelector(".shell");
+  if (!screen || screen.dataset.page === page) return;
+  screen.classList.add("page-exit");
+  setTimeout(() => renderPage(page), 240);
+}
+
+function renderPage(page) {
+  clearInterval(homeClock);
+  const w = state.world || { location:"WORLD NOT SYNCED", region:"SYNCを押して世界に入る", weather:"UNKNOWN", temperature:"—", phase:phase(new Date().getHours()), season:season(new Date().getMonth()), ambience:"最初のWORLD SYNCを待っています。" };
+  const todayEvents = state.log.filter((event) => event.day === dateKey());
+  const now = new Date();
+  let content = "";
+  if (page === "world") content = `<section class="page-hero world-page-hero"><p class="eyebrow">real world / live</p><h1>WORLD</h1><p>いま、この場所で進行している世界。</p><div class="world-orbital"><span class="location-mark">${icon("location")}</span><div><strong>${esc(w.location)}</strong><small>${esc(w.region)}</small></div><b>${esc(w.temperature)}°</b></div></section><section class="detail-card glass"><p class="eyebrow">world conditions</p><div class="condition-list"><div><span>${icon(phaseIcon(w.phase))}</span><p>TIME<b>${esc(w.phase)}</b></p></div><div><span>${icon(weatherIcon(w.weather))}</span><p>WEATHER<b>${esc(w.weather)}</b></p></div><div><span>${icon("sun")}</span><p>SEASON<b>${esc(w.season)}</b></p></div></div><p class="ambience">${esc(w.ambience)}</p><button class="primary-action" id="page-sync">SYNC WORLD</button></section>`;
+  if (page === "player") content = `<section class="page-hero"><p class="eyebrow">character profile</p><h1>PLAYER</h1><p>現実を歩く、あなた自身のステータス。</p><div class="player-portrait"><div class="level glass"><span class="eyebrow">lv</span><strong>${state.player.level}</strong></div><div><strong>PLAYER ONE</strong><small>DAY START · ${esc(state.status?.[dateKey()] || "UNKNOWN")}</small></div></div></section><section class="detail-card glass"><p class="eyebrow">current parameters</p><div class="parameter-list">${[["HP",state.player.hp,"#f4b9cc"],["ENERGY",state.player.energy,"#bfe5d0"],["FOCUS",state.player.focus,"#b8e5f2"],["EXP",state.player.exp,"#d8ccff"]].map(([label,value,color]) => `<div><p><span>${label}</span><b>${value}${label === "EXP" ? " / 500" : ""}</b></p><i><span style="width:${label === "EXP" ? value / 5 : value}%;background:${color}"></span></i></div>`).join("")}</div></section><section class="detail-card glass status-effects"><p class="eyebrow">status effect</p><strong>${esc(state.status?.[dateKey()] || "UNKNOWN")}</strong><p>今日の世界への入り方として記録されています。</p></section>`;
+  if (page === "log") content = `<section class="page-hero"><p class="eyebrow">your story so far</p><h1>PLAYER LOG</h1><p>この世界で起きたことの記録。</p><div class="log-stat"><b>${state.log.length}</b><span>ENTRIES<br>RECORDED</span></div></section><section class="detail-card glass full-log">${state.log.length ? state.log.map((entry) => `<article><p class="eyebrow">${esc(entry.day)} · ${esc(entry.time)} · ${esc(entry.kind)}</p><strong>${esc(entry.title)}</strong><p>${esc(entry.detail)}</p></article>`).join("") : `<p class="view-copy">まだ記録はありません。</p>`}</section>`;
+  if (page === "sound") content = `<section class="page-hero"><p class="eyebrow">real world soundtrack</p><h1>SOUND</h1><p>いまの現実に、世界の音楽を重ねる。</p><div class="sound-visual"><i></i><i></i><i></i><i></i><i></i></div></section><section class="detail-card glass"><p class="eyebrow">scene selection</p><div class="scene-grid">${[["HOME","SAFE AREA"],["CITY","EXPLORATION"],["NIGHT","AMBIENT"],["RAIN","EVENT"]].map(([scene,type]) => `<button class="scene-choice ${state.soundtrack === scene ? "selected" : ""}" data-scene="${scene}"><b>${scene}</b><span>${type}</span></button>`).join("")}</div><p class="ambience">Spotify連携前でも、いま聴きたい世界のシーンをここに残せます。</p></section>`;
+  if (page === "system") content = `<section class="page-hero"><p class="eyebrow">life system settings</p><h1>SYSTEM</h1><p>現実とLIFE SYSTEMをつなぐ設定。</p><div class="system-status"><i></i><span>WORLD INTERFACE<br><b>ONLINE</b></span></div></section><section class="detail-card glass system-list"><button id="system-sync"><span>WORLD SYNC</span><small>現在地・天気を更新</small><b>→</b></button><button id="system-status"><span>DAY START STATUS</span><small>今日の状態を選び直す</small><b>→</b></button><div><span>PLAYER LOG</span><small>${todayEvents.length} EVENTS TODAY · この端末に保存</small></div></section>`;
+  app.innerHTML = `<div class="shell page-shell page-enter" data-page="${page}"><header class="page-header"><button class="home-button" data-home>← <span>HOME</span></button><p class="eyebrow">LIFE SYSTEM</p></header>${pageNav(page)}<main class="page-content">${content}</main></div>`;
+  app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
+  app.querySelector("[data-home]").addEventListener("click", () => { const shell = app.querySelector(".shell"); shell.classList.add("page-exit"); setTimeout(renderHome, 240); });
+  app.querySelector("#page-sync")?.addEventListener("click", sync);
+  app.querySelector("#system-sync")?.addEventListener("click", sync);
+  app.querySelector("#system-status")?.addEventListener("click", showStatus);
+  app.querySelectorAll("[data-scene]").forEach((button) => button.addEventListener("click", () => { state.soundtrack = button.dataset.scene; save(); button.closest(".scene-grid").querySelectorAll("button").forEach((item) => item.classList.toggle("selected", item === button)); }));
 }
 
 function closeView() { document.querySelector(".view-layer")?.remove(); }
