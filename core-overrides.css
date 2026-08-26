@@ -32,3 +32,60 @@ body::after { opacity:.58; }
 .card::before,.detail-card::before { background:linear-gradient(116deg,rgba(255,255,255,.43),transparent 25%,transparent 67%,rgba(137,193,225,.21)) !important; opacity:.92; }
 .player-core { background:radial-gradient(circle at 50% 39%,rgba(250,254,255,.51),rgba(154,194,219,.12) 39%,transparent 67%),radial-gradient(circle at 8% 92%,rgba(204,161,231,.19),transparent 43%),linear-gradient(145deg,rgba(235,244,249,.20),rgba(111,135,157,.12)) !important; }
 .core-center,.core-objective { background:linear-gradient(135deg,rgba(244,252,255,.48),rgba(163,191,209,.19),rgba(154,133,177,.19)) !important; box-shadow:inset 1px 1px rgba(255,255,255,.77),inset -1px -1px rgba(50,68,89,.15),0 18px 40px -29px rgba(48,68,99,.46) !important; }
+
+/* Actual depth behind the UI — glass now refracts a world rather than a flat tint. */
+body {
+  background:
+    linear-gradient(180deg,rgba(17,30,48,.10),rgba(224,232,244,.10) 42%,rgba(29,42,62,.16)),
+    url("./assets/world-glass-depth.png") center center / cover fixed,
+    #9eacbd !important;
+  background-attachment:fixed !important;
+}
+body::before {
+  background:
+    radial-gradient(58% 36% at 10% 4%,rgba(255,255,255,.48),transparent 69%),
+    linear-gradient(123deg,rgba(255,255,255,.14),transparent 29%,rgba(22,43,66,.17) 73%,rgba(255,255,255,.17)) !important;
+  mix-blend-mode:screen;
+  opacity:.72;
+}
+body::after { opacity:.30; mix-blend-mode:soft-light; }
+
+/* A smaller number of materially thick panes: edge, internal shade and refraction are visible. */
+.glass,
+.page-nav,
+.action-dock {
+  background:
+    linear-gradient(137deg,rgba(248,253,255,.34) 0%,rgba(206,224,235,.17) 37%,rgba(79,103,126,.22) 100%) !important;
+  border:1px solid rgba(255,255,255,.72) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,.84),
+    inset -1px -1px 0 rgba(22,38,57,.22),
+    inset 0 0 0 1px rgba(120,162,189,.13),
+    0 22px 48px -29px rgba(16,30,53,.54),
+    0 5px 13px -9px rgba(255,255,255,.44) !important;
+  backdrop-filter:blur(28px) saturate(150%) contrast(1.04) !important;
+  -webkit-backdrop-filter:blur(28px) saturate(150%) contrast(1.04) !important;
+}
+.glass::after,
+.page-nav::after,
+.action-dock::after {
+  content:"";
+  position:absolute;
+  pointer-events:none;
+  inset:1px;
+  border-radius:inherit;
+  background:linear-gradient(114deg,rgba(255,255,255,.34),transparent 19%,transparent 72%,rgba(137,216,255,.15));
+  mix-blend-mode:screen;
+}
+.player-core .core-center,
+.player-core .core-objective {
+  background:
+    linear-gradient(137deg,rgba(250,254,255,.46),rgba(183,210,225,.18) 48%,rgba(62,85,113,.20)) !important;
+  border-color:rgba(255,255,255,.78) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,.90),
+    inset -1px -1px 0 rgba(24,42,64,.20),
+    0 21px 42px -28px rgba(16,29,52,.58) !important;
+  backdrop-filter:blur(30px) saturate(155%) !important;
+  -webkit-backdrop-filter:blur(30px) saturate(155%) !important;
+}
