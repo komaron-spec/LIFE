@@ -3,6 +3,7 @@ const KEY = "life-system-v1";
 const statuses = ["CALM", "ENERGETIC", "TIRED", "FOCUSED", "UNSTABLE", "UNKNOWN"];
 const statusJapanese = { CALM:"穏やか", ENERGETIC:"元気", TIRED:"疲れている", FOCUSED:"集中している", UNSTABLE:"不安定", UNKNOWN:"まだわからない" };
 const state = JSON.parse(localStorage.getItem(KEY) || "null") || { log: [], player: { level: 1, exp: 120, hp: 86, energy: 72, focus: 61 } };
+let homeClock;
 const dateKey = () => new Date().toLocaleDateString("en-CA");
 const save = () => localStorage.setItem(KEY, JSON.stringify(state));
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" })[c]);
@@ -24,7 +25,8 @@ function phaseIcon(value) { return /NIGHT/.test(value) ? "moon" : /MORNING|AFTER
 function phase(hour) { return hour < 5 ? "NIGHT" : hour < 11 ? "MORNING" : hour < 17 ? "AFTERNOON" : hour < 21 ? "EVENING" : "NIGHT"; }
 function season(month) { return month >= 5 && month <= 7 ? "SUMMER" : month >= 8 && month <= 10 ? "AUTUMN" : month <= 1 || month === 11 ? "WINTER" : "SPRING"; }
 function boot() {
-  app.innerHTML = `<section class="boot"><div><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">real world interface</p><div class="progress"><i></i></div><p id="boot-copy">世界との接続を準備しています…</p></div></section>`;
+  clearInterval(homeClock);
+  app.innerHTML = `<section class="boot"><div class="boot-world"><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">real world interface</p><div class="progress"><i></i></div><p id="boot-copy">世界との接続を準備しています…</p></div></section>`;
   const copies = ["世界との接続を準備しています…", "プレイヤーを確認しています…", "前回の世界を復元しています…"];
   let i = 0; const timer = setInterval(() => { i++; const el = document.querySelector("#boot-copy"); if (el) el.textContent = copies[i] || copies.at(-1); }, 580);
   setTimeout(() => { clearInterval(timer); renderHome(); if (!state.status?.[dateKey()]) showStatus(); }, 1900);
@@ -72,7 +74,7 @@ async function sync() {
   if (!state.log.some((e) => e.day === today && e.title === title)) state.log.unshift({ id:crypto.randomUUID(), day:today, time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"EVENT", title, detail:world.ambience });
   save(); renderSync("WORLD SYNC COMPLETE"); setTimeout(renderHome, 700);
 }
-function renderSync(copy) { app.innerHTML = `<section class="boot"><div><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">world sync in progress</p><div class="progress"><i></i></div><p>${esc(copy)}</p></div></section>`; }
+function renderSync(copy) { clearInterval(homeClock); app.innerHTML = `<section class="boot"><div class="boot-world"><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">world sync in progress</p><div class="progress"><i></i></div><p>${esc(copy)}</p></div></section>`; }
 function showStatus() {
   const modal = document.createElement("section"); modal.className = "status-dialog";
   modal.innerHTML = `<div class="dialog glass"><p class="eyebrow">day start status</p><h2>今日は、どんな状態で<br>世界に入りますか？</h2><p class="dialog-copy">いまの自分にいちばん近いものを選んでください。</p><div class="choices">${statuses.map((s) => `<button class="choice" data-status="${s}"><b>${s}</b><span>${statusJapanese[s]}</span></button>`).join("")}</div></div>`;
@@ -90,6 +92,15 @@ function renderHome() {
   <nav class="action-dock glass" aria-label="LIFE SYSTEM actions"><button data-action="record"><b>記録する</b></button><button data-action="observe"><b>世界を観測</b></button><button data-action="complete"><b>一日を閉じる</b></button></nav></div>`;
   document.querySelector("#sync").addEventListener("click", sync);
   app.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => openView(button.dataset.action)));
+  app.querySelectorAll(".header, .stack > .card, .action-dock").forEach((element, index) => element.style.setProperty("--enter-delay", `${index * 75}ms`));
+  clearInterval(homeClock);
+  homeClock = setInterval(() => {
+    const clock = app.querySelector(".clock");
+    const date = app.querySelector(".date");
+    const nowLive = new Date();
+    if (clock) clock.textContent = nowLive.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit", hour12:false });
+    if (date) date.textContent = nowLive.toLocaleDateString([], { weekday:"long", day:"numeric", month:"long" });
+  }, 1000);
 }
 
 function closeView() { document.querySelector(".view-layer")?.remove(); }
@@ -112,5 +123,5 @@ function openView(name) {
   layer.querySelector("#close-observation")?.addEventListener("click", closeView);
   layer.querySelector("#finish-day")?.addEventListener("click", () => { const title = "DAY COMPLETE"; if (!state.log.some((e) => e.day === dateKey() && e.title === title)) state.log.unshift({ id:crypto.randomUUID(), day:dateKey(), time:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"SYSTEM", title, detail:`${todayEvents.length} events recorded · +${todayEvents.length * 20} EXP` }); save(); closeView(); renderHome(); });
 }
-if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js", { updateViaCache:"none" }));
 boot();
