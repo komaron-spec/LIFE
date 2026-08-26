@@ -13,3 +13,13 @@ body::after { background-image:linear-gradient(rgba(125,171,211,.055) 1px,transp
 .core-center,.core-objective,.hud-mission > * { background:linear-gradient(135deg,rgba(255,255,255,.65),rgba(220,241,255,.29),rgba(235,215,255,.24)) !important; border-color:rgba(255,255,255,.9) !important; }
 .page-nav,.action-dock { background:linear-gradient(135deg,rgba(255,255,255,.45),rgba(209,231,255,.18),rgba(237,218,255,.2)) !important; backdrop-filter:blur(38px) saturate(170%) !important; }
 @keyframes world-light-drift { to { transform:translate3d(4%,2%,0) scale(1.08); opacity:.72; } }
+
+/* Do not turn HOME into a stack of speech bubbles: the CORE floats directly in the world. */
+.stack > .player-core ~ .card { display:none !important; }
+.player-core { overflow:visible !important; border:0 !important; border-radius:0 !important; background:transparent !important; box-shadow:none !important; }
+.player-core::before { opacity:.62; }
+.core-objective { background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(203,229,255,.12),rgba(232,211,255,.14)) !important; border-color:rgba(255,255,255,.58) !important; box-shadow:inset 0 1px rgba(255,255,255,.68),0 16px 38px -31px rgba(78,106,155,.55) !important; backdrop-filter:blur(22px) saturate(165%); }
+.glass { background:linear-gradient(132deg,rgba(255,255,255,.30),rgba(255,255,255,.08) 46%,rgba(193,223,255,.15) 74%,rgba(232,204,255,.14)) !important; border-color:rgba(255,255,255,.68) !important; backdrop-filter:blur(24px) saturate(175%) brightness(1.05) !important; -webkit-backdrop-filter:blur(24px) saturate(175%) brightness(1.05) !important; }
+.card::before,.detail-card::before { opacity:.62; }
+/* The PLAYER header must stay stable; remove the two decorative objects that can distort on mobile Safari. */
+.player-portrait .player-level-ring,.player-portrait .player-level-ring .level,.build-sigil { display:none !important; }
