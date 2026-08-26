@@ -94,3 +94,13 @@ body::after { opacity:.36; }
   visibility:hidden !important;
   pointer-events:none !important;
 }
+
+/* The actual world history is intentionally quieter than the future schedule. */
+.world-activity-timeline { overflow:hidden; }
+.world-activity-timeline > div:last-of-type { display:grid; gap:0; margin-top:14px; }
+.world-activity-timeline article { display:grid; grid-template-columns:43px 58px 1fr; column-gap:8px; align-items:baseline; padding:12px 0; border-top:1px solid rgba(135,169,205,.18); }
+.world-activity-timeline article time { color:#718cab; font:9px ui-monospace,monospace; }
+.world-activity-timeline article > span { color:#8e78ae; font:8px ui-monospace,monospace; letter-spacing:.04em; }
+.world-activity-timeline article strong { color:#536d91; font-size:11px; font-weight:650; }
+.world-activity-timeline article p { grid-column:3; margin:4px 0 0; color:#8094ae; font-size:10px; line-height:1.45; }
+.world-activity-timeline > small { display:block; margin-top:13px; padding-top:11px; border-top:1px solid rgba(135,169,205,.16); color:#8498b2; font:8px ui-monospace,monospace; letter-spacing:.05em; }

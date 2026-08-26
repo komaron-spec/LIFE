@@ -131,6 +131,9 @@ function messageFromWorldEvent(event) {
   if (/NEW WORLD REGION/.test(event.title)) return { level:3, title:"NEW WORLD GATE UNLOCKED", detail:event.detail, target:"archive" };
   if (/NEW AREA DISCOVERED/.test(event.title)) return { level:1, title:"NEW AREA DISCOVERED", detail:event.detail, target:"archive" };
   if (/CODEX UPDATED/.test(event.title)) return { level:1, title:"CODEX UPDATED", detail:event.detail, target:"archive" };
+  if (/FIXED EVENT CLEARED/.test(event.title)) return { level:2, title:"FIXED EVENT CLEARED", detail:event.detail, target:"log" };
+  if (/LOCATION UPDATED/.test(event.title)) return { level:1, title:"AREA TRANSITION DETECTED", detail:event.detail, target:"archive" };
+  if (/PHASE BEGUN/.test(event.title)) return { level:0, title:event.title, detail:event.detail, target:"world" };
   if (/RAIN|WEATHER/.test(event.title)) return { level:0, title:"WORLD STATE UPDATED", detail:event.detail, target:"world" };
   return { level:1, title:event.title, detail:event.detail, target:"world" };
 }
@@ -382,6 +385,32 @@ function detectWorldEvents(previous, current, now) {
   }
   return detected;
 }
+function worldEventMemory() { return (state.worldEventMemory ||= { calendarCompleted:{}, total:0, discoveries:0, cleared:0 }); }
+function detectCalendarCompletionEvents(now) {
+  const memory = worldEventMemory(); const detected = [];
+  (state.calendar?.events || []).forEach((event) => {
+    const end = new Date(event.end?.dateTime || event.end?.date);
+    if (Number.isNaN(end) || end > now) return;
+    const key = `${event.id}:${end.toISOString()}`;
+    if (memory.calendarCompleted[key]) return;
+    memory.calendarCompleted[key] = now.toISOString(); memory.cleared += 1;
+    detected.push({ id:crypto.randomUUID(), day:dateKey(), time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"MISSION", title:"FIXED EVENT CLEARED", detail:`${event.title} / ${calendarTime(event)}` });
+  });
+  const known = Object.keys(memory.calendarCompleted);
+  if (known.length > 180) known.sort((a,b) => new Date(memory.calendarCompleted[a]) - new Date(memory.calendarCompleted[b])).slice(0, known.length - 180).forEach((key) => delete memory.calendarCompleted[key]);
+  return detected;
+}
+function registerWorldEventProgress(events) {
+  if (!events.length) return;
+  const memory = worldEventMemory();
+  memory.total += events.length;
+  memory.discoveries += events.filter((event) => /DISCOVERED|CODEX UPDATED/.test(event.title)).length;
+}
+function renderWorldActivityTimeline() {
+  const items = state.log.filter((event) => event.day === dateKey()).slice(0,10);
+  const memory = worldEventMemory();
+  return `<section class="detail-card glass world-activity-timeline"><div class="section-head"><p class="eyebrow">today's world activity</p><span>${items.length} EVENTS</span></div><p class="status-intro">予定だけではなく、SYNCで検出された移動・環境変化・DISCOVERYもここに積み重なります。</p><div>${items.length ? items.map((item) => `<article><time>${esc(item.time)}</time><span>${esc(item.kind)}</span><strong>${esc(item.title)}</strong><p>${esc(item.detail || "")}</p></article>`).join("") : `<p class="timeline-empty">まだWORLD EVENTはありません。SYNCすると、現実で起きた変化を検出します。</p>`}</div><small>SESSION TOTAL · ${memory.total} EVENTS / ${memory.discoveries} DISCOVERIES / ${memory.cleared} CLEARED</small></section>`;
+}
 function boot() {
   clearInterval(homeClock);
   app.innerHTML = `<section class="boot"><div class="boot-world"><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">real world interface</p><div class="progress"><i></i></div><p id="boot-copy">世界との接続を準備しています…</p></div></section>`;
@@ -442,12 +471,12 @@ async function sync() {
     world.ambience = world.weather === "WEATHER UNAVAILABLE" ? "現在地を確認しました。天気情報は今は取得できません。" : `現在の空模様：${world.weather}`;
   } catch { world.ambience = "位置情報なしで世界へ入りました。準備ができたら、もう一度SYNCできます。"; }
   state.lastDiscovery = false;
-  const detectedEvents = [...detectWorldEvents(state.world, world, now), ...syncArchiveDiscovery(world, now)];
+  const detectedEvents = [...detectWorldEvents(state.world, world, now), ...syncArchiveDiscovery(world, now), ...detectCalendarCompletionEvents(now)];
   state.world = world;
   const title = world.weather !== "WEATHER UNAVAILABLE" ? `${world.weather} detected` : "World sync completed";
   const today = dateKey();
   state.lastSyncEvents = detectedEvents.length;
-  if (detectedEvents.length) state.log.unshift(...detectedEvents);
+  if (detectedEvents.length) { state.log.unshift(...detectedEvents); registerWorldEventProgress(detectedEvents); }
   else if (!state.log.some((e) => e.day === today && e.title === title)) state.log.unshift({ id:crypto.randomUUID(), day:today, time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"EVENT", title, detail:world.ambience });
   detectedEvents.forEach((item) => recordSystemMessage(messageFromWorldEvent(item)));
   if (!detectedEvents.length) recordSystemMessage({ level:0, title:"WORLD SYNC COMPLETE", detail:world.location, target:"world" });
@@ -572,6 +601,7 @@ function renderPage(page) {
   if (page === "__player") page = "player";
   if (page === "__navigator") page = "navigator";
   if (page === "__systemlog") page = "systemlog";
+  if (page === "log") content += renderWorldActivityTimeline();
   if (page === "skills") requestAnimationFrame(localiseSkillChrome);
   app.innerHTML = `<div class="shell page-shell page-enter" data-page="${page}"><header class="page-header"><button class="home-button" data-home>← <span>HOME</span></button><p class="eyebrow">LIFE SYSTEM</p></header>${pageNav(page)}<main class="page-content">${content}</main></div>`;
   app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
