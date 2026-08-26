@@ -32,3 +32,37 @@ body::after { opacity:.58; }
 .card::before,.detail-card::before { background:linear-gradient(116deg,rgba(255,255,255,.43),transparent 25%,transparent 67%,rgba(137,193,225,.21)) !important; opacity:.92; }
 .player-core { background:radial-gradient(circle at 50% 39%,rgba(250,254,255,.51),rgba(154,194,219,.12) 39%,transparent 67%),radial-gradient(circle at 8% 92%,rgba(204,161,231,.19),transparent 43%),linear-gradient(145deg,rgba(235,244,249,.20),rgba(111,135,157,.12)) !important; }
 .core-center,.core-objective { background:linear-gradient(135deg,rgba(244,252,255,.48),rgba(163,191,209,.19),rgba(154,133,177,.19)) !important; box-shadow:inset 1px 1px rgba(255,255,255,.77),inset -1px -1px rgba(50,68,89,.15),0 18px 40px -29px rgba(48,68,99,.46) !important; }
+
+/* Bright liquid glass: clarity and light, not smoked grey panels. */
+body {
+  background:
+    radial-gradient(58rem 42rem at -10% -8%,rgba(184,229,255,.83),transparent 59%),
+    radial-gradient(56rem 41rem at 108% 91%,rgba(237,204,255,.68),transparent 59%),
+    radial-gradient(43rem 35rem at 50% 41%,rgba(255,255,255,.97),transparent 71%),
+    #edf4ff !important;
+}
+body::before {
+  background:linear-gradient(126deg,rgba(255,255,255,.57),transparent 30%,rgba(218,238,255,.24) 68%,rgba(255,255,255,.45)) !important;
+  opacity:.74;
+}
+body::after { opacity:.36; }
+.glass,
+.page-nav,
+.action-dock {
+  background:linear-gradient(137deg,rgba(255,255,255,.62),rgba(255,255,255,.24) 42%,rgba(204,231,255,.27) 72%,rgba(239,218,255,.25)) !important;
+  border-color:rgba(255,255,255,.92) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,1),
+    inset -1px -1px 0 rgba(157,189,219,.13),
+    0 20px 46px -36px rgba(91,119,169,.42),
+    0 1px 0 rgba(255,255,255,.85) !important;
+  backdrop-filter:blur(34px) saturate(165%) brightness(1.12) !important;
+  -webkit-backdrop-filter:blur(34px) saturate(165%) brightness(1.12) !important;
+}
+.card::before,.detail-card::before { opacity:1; background:linear-gradient(117deg,rgba(255,255,255,.76),transparent 24%,transparent 67%,rgba(196,230,255,.28)) !important; }
+.player-core .core-center,
+.player-core .core-objective {
+  background:linear-gradient(137deg,rgba(255,255,255,.76),rgba(220,242,255,.33) 47%,rgba(241,224,255,.29)) !important;
+  border-color:rgba(255,255,255,.96) !important;
+  box-shadow:inset 1px 1px rgba(255,255,255,1),inset -1px -1px rgba(156,188,220,.11),0 19px 38px -29px rgba(91,119,169,.42) !important;
+}
