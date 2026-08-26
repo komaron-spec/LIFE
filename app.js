@@ -64,14 +64,16 @@ function checkLifeReminders() {
   const todayEvents = (state.calendar?.events || []).filter((event) => new Date(event.start?.dateTime || event.start?.date).toDateString() === now.toDateString());
   if (settings.morning && hour === 8 && minute < 2) {
     const first = todayEvents.find((event) => new Date(event.start?.dateTime || event.start?.date) > now);
-    sendOnce(`${stamp}:morning`, "SYSTEM MESSAGE", `WORLD LOGIN\nTODAY LOAD: ${todayEvents.length ? `${todayEvents.length} FIXED EVENTS` : "FREE ROAM"}${first ? `\nFIRST EVENT: ${calendarTime(first)}  《${first.title}》` : ""}`);
+    sendOnce(`${stamp}:morning`, "WORLD LOGIN", `おはよう、プレイヤー。\n${todayEvents.length ? `今日の固定EVENTは${todayEvents.length}件です。` : "今日はFREE ROAMです。"}${first ? `\n最初の予定：${calendarTime(first)} 《${first.title}》` : ""}`);
   }
-  if (settings.evening && hour === 21 && minute < 2) sendOnce(`${stamp}:evening`, "SYSTEM MESSAGE", "NIGHT PHASE\nTODAY SESSIONは終了へ向かっています。\nNo action required.");
+  if (settings.evening && hour === 21 && minute < 2) sendOnce(`${stamp}:evening`, "NIGHT PHASE", "本日のSESSIONは夜へ移行しました。\n操作は必要ありません。");
   if (settings.calendar) (state.calendar?.events || []).forEach((event) => {
     const start = new Date(event.start?.dateTime || event.start?.date); const minutes = Math.round((start - now) / 60000); const key = `${event.id}:${start.toISOString()}`;
     if (minutes > 0 && minutes <= 30) {
-      const urgency = minutes <= 5 ? "EVENT IMMINENT" : minutes <= 12 ? "PREPARATION WINDOW CLOSING" : "FIXED EVENT APPROACHING";
-      sendOnce(key, "SYSTEM MESSAGE", `${urgency}\n《${event.title}》\nSTART WINDOW: ${String(minutes).padStart(2,"0")}:00\n${event.location ? `LOCATION: ${event.location}` : "PREPARATION AVAILABLE"}`);
+      const sleep = /睡眠|就寝|寝る|SLEEP/i.test(event.title);
+      const title = sleep ? "SLEEP PHASE" : minutes <= 5 ? "EVENT IMMINENT" : "NEXT EVENT";
+      const phase = sleep ? "ログアウト準備を開始できます。" : minutes <= 5 ? "まもなく開始です。" : "準備できる時間があります。";
+      sendOnce(key, title, `《${event.title}》まであと${minutes}分\n${event.location ? `場所：${event.location}\n` : ""}${phase}`);
     }
   });
 }
