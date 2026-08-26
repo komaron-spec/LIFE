@@ -34,6 +34,7 @@ let homeClock;
 let coreAmbientTimer;
 const dateKey = () => new Date().toLocaleDateString("en-CA");
 const save = () => localStorage.setItem(KEY, JSON.stringify(state));
+const areaState = () => (state.areas ||= []);
 let systemAudio;
 let idleTimer;
 const feedbackSettings = () => (state.feedback ||= { sound:true });
@@ -532,6 +533,37 @@ async function weather(lat, lon) {
   return { weather: names[code] || "LOCAL CONDITIONS", temperature: Math.round(data.current?.temperature_2m) };
 }
 function getPosition() { return new Promise((resolve, reject) => navigator.geolocation ? navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:20000, maximumAge:0 }) : reject()); }
+function worldArea(world = {}) {
+  const latitude = Number(world.latitude); const longitude = Number(world.longitude);
+  const matched = Number.isFinite(latitude) && Number.isFinite(longitude) ? areaState().filter((area) => distanceKm(latitude, longitude, area.latitude, area.longitude) * 1000 <= area.radius).sort((a,b) => distanceKm(latitude, longitude, a.latitude, a.longitude) - distanceKm(latitude, longitude, b.latitude, b.longitude))[0] : null;
+  if (matched) return { id:matched.id, name:matched.name, type:matched.type, registered:true };
+  return { id:`field:${String(world.location || "world").toLowerCase()}`, name:`FIELD / ${world.location || "WORLD"}`, type:"field", registered:false };
+}
+function detectWorldTransition(previous = {}, next = {}, now = new Date()) {
+  if (!previous?.area?.id || previous.area.id === next.area?.id) return null;
+  const regionChanged = previous.region && next.region && previous.region !== next.region;
+  const previousName = previous.area.name || previous.location || "FIELD";
+  const nextName = next.area.name || next.location || "FIELD";
+  const title = regionChanged ? "REGION CHANGED" : next.area.registered ? "AREA ENTERED" : previous.area.registered ? "AREA EXITED" : "WORLD TRANSITION";
+  const detail = regionChanged ? `${previous.region} → ${next.region}` : `${previousName} → ${nextName}`;
+  state.pendingWorldTransition = { title, detail, area:nextName, at:now.toISOString() };
+  return { id:crypto.randomUUID(), day:dateKey(), time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"WORLD", title, detail };
+}
+async function registerCurrentArea({ name, type = "custom", radius = 180 }) {
+  const cleaned = String(name || "").trim().toUpperCase();
+  if (!cleaned) throw new Error("area name required");
+  const pos = await getPosition(); const areas = areaState();
+  if (type === "home") areas.splice(0, areas.length, ...areas.filter((area) => area.type !== "home"));
+  const existing = areas.find((area) => area.name === cleaned);
+  const record = { id:existing?.id || crypto.randomUUID(), name:cleaned, type, radius:Math.max(50, Math.min(1000, Number(radius) || 180)), latitude:pos.coords.latitude, longitude:pos.coords.longitude, updatedAt:new Date().toISOString() };
+  if (existing) Object.assign(existing, record); else areas.push(record);
+  state.log.unshift({ id:crypto.randomUUID(), day:dateKey(), time:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"SYSTEM", title:"AREA REGISTERED", detail:`${record.name} / ${record.radius}m radius` });
+  recordSystemMessage({ level:1, title:"AREA REGISTERED", detail:record.name, target:"world" }); save();
+}
+function renderAreaSettings() {
+  const areas = areaState();
+  return `<section class="detail-card glass area-settings"><div class="section-head"><p class="eyebrow">world transition</p><span>${areas.length} AREAS</span></div><strong>日常エリアを登録する</strong><p>現在地をHOME BASEや大学などのAREAとして登録すると、SYNC時に自動で出入りを判定します。</p><div class="area-actions"><button class="subtle-action" id="set-home-area">現在地をHOME BASEにする</button><div><input id="custom-area-name" maxlength="28" placeholder="例：KGU / CAMPUS"><select id="custom-area-radius"><option value="120">半径 120m</option><option value="200" selected>半径 200m</option><option value="350">半径 350m</option><option value="500">半径 500m</option></select><button class="subtle-action" id="set-custom-area">現在地をAREAとして登録</button></div></div><div class="registered-areas">${areas.length ? areas.map((area) => `<article><i>${area.type === "home" ? "⌂" : "◌"}</i><span><b>${esc(area.name)}</b><small>${area.radius}m / ${area.type === "home" ? "HOME BASE" : "CUSTOM AREA"}</small></span><button data-remove-area="${area.id}" aria-label="${esc(area.name)}を削除">×</button></article>`).join("") : `<p>まだ登録されたエリアはありません。</p>`}</div></section>`;
+}
 async function sync() {
   systemFeedback("scan");
   const button = document.querySelector("#sync"); if (button) button.disabled = true;
@@ -550,7 +582,9 @@ async function sync() {
     world.ambience = world.weather === "WEATHER UNAVAILABLE" ? "現在地を確認しました。天気情報は今は取得できません。" : `現在の空模様：${world.weather}`;
   } catch { world.ambience = "位置情報なしで世界へ入りました。準備ができたら、もう一度SYNCできます。"; }
   state.lastDiscovery = false;
-  const detectedEvents = [...detectWorldEvents(state.world, world, now), ...syncArchiveDiscovery(world, now), ...detectCalendarCompletionEvents(now)];
+  world.area = worldArea(world);
+  const transition = detectWorldTransition(state.world, world, now);
+  const detectedEvents = [...detectWorldEvents(state.world, world, now), ...(transition ? [transition] : []), ...syncArchiveDiscovery(world, now), ...detectCalendarCompletionEvents(now)];
   state.world = world;
   const title = world.weather !== "WEATHER UNAVAILABLE" ? `${world.weather} detected` : "World sync completed";
   const today = dateKey();
@@ -583,11 +617,17 @@ function showStatus() {
   modal.innerHTML = `<div class="dialog glass"><p class="eyebrow">day start status</p><h2>今日は、どんな状態で<br>世界に入りますか？</h2><p class="dialog-copy">いまの自分にいちばん近いものを選んでください。</p><div class="choices">${statuses.map((s) => `<button class="choice" data-status="${s}"><b>${s}</b><span>${statusJapanese[s]}</span></button>`).join("")}</div></div>`;
   modal.addEventListener("click", (e) => { const value = e.target.closest("[data-status]")?.dataset.status; if (!value) return; state.status ||= {}; state.status[dateKey()] = value; state.log.unshift({id:crypto.randomUUID(),day:dateKey(),time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),kind:"STATUS",title:`WORLD ENTRY: ${value}`,detail:`DAY START STATUS — ${statusJapanese[value]}`}); save(); modal.remove(); renderHome(); }); document.body.append(modal);
 }
+const areaLabel = (world = {}) => world.area?.name || world.location || "WORLD";
+function renderWorldTransition(transition) {
+  if (!transition) return "";
+  return `<aside class="world-transition" aria-live="assertive"><div><small>${esc(transition.title)}</small><strong>${esc(transition.area)}</strong><span>${esc(transition.detail)}</span></div></aside>`;
+}
 function renderHome() {
-  const w = state.world || { location:"WORLD NOT SYNCED", region:"SYNCを押して世界に入る", weather:"UNKNOWN", temperature:"—", phase:phase(new Date().getHours()), season:season(new Date().getMonth()), ambience:"最初のWORLD SYNCを待っています。" };
+  const savedWorld = state.world || { location:"WORLD NOT SYNCED", region:"SYNCを押して世界に入る", weather:"UNKNOWN", temperature:"—", phase:phase(new Date().getHours()), season:season(new Date().getMonth()), ambience:"最初のWORLD SYNCを待っています。" };
+  const w = { ...savedWorld, location:areaLabel(savedWorld) };
   applyWorldAtmosphere(w);
-  const now = new Date(); const p = state.player; const events = state.log.filter((e) => e.day === dateKey()).slice(0,3); const nav = navigatorBrief(w, p); const soundtrack = soundtrackFor(w); const activeTrack = soundtrackLibrary.find((track) => track.id === state.soundtrackId) || soundtrack; const nextMission = upcomingCalendarEvent(); const greeting = navigatorGreeting(w, p); const current = currentPlayerState(w); const activeQuest = state.quests?.find((quest) => quest.status === "active"); const latestMessage = systemLog()[0];
-  app.innerHTML = `<div class="shell home-enter" data-page="home"><header class="header"><div><p class="eyebrow">world time</p><p class="clock">${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false})}</p><p class="date">${now.toLocaleDateString([], {weekday:"long",day:"numeric",month:"long"})}</p></div><button id="sync" class="sync glass"><span class="eyebrow">sync</span><time>${w.syncedAt ? new Date(w.syncedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "READY"}</time></button></header>${pageNav("world")}<div class="stack">${renderPlayerCore(w, current, nextMission)}
+  const now = new Date(); const p = state.player; const events = state.log.filter((e) => e.day === dateKey()).slice(0,3); const nav = navigatorBrief(w, p); const soundtrack = soundtrackFor(w); const activeTrack = soundtrackLibrary.find((track) => track.id === state.soundtrackId) || soundtrack; const nextMission = upcomingCalendarEvent(); const greeting = navigatorGreeting(w, p); const current = currentPlayerState(w); const activeQuest = state.quests?.find((quest) => quest.status === "active"); const latestMessage = systemLog()[0]; const transition = state.pendingWorldTransition;
+  app.innerHTML = `<div class="shell home-enter" data-page="home">${renderWorldTransition(transition)}<header class="header"><div><p class="eyebrow">world time</p><p class="clock">${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false})}</p><p class="date">${now.toLocaleDateString([], {weekday:"long",day:"numeric",month:"long"})}</p></div><button id="sync" class="sync glass"><span class="eyebrow">sync</span><time>${w.syncedAt ? new Date(w.syncedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "READY"}</time></button></header>${pageNav("world")}<div class="stack">${renderPlayerCore(w, current, nextMission)}
   <section class="home-live-hud glass"><div class="hud-topline"><p class="eyebrow">current play state</p><span><i></i>SESSION ACTIVE</span></div><div class="hud-primary"><div><small>CURRENT AREA</small><strong>${esc(w.location)}</strong><span>${esc(w.region)}</span></div><time id="hud-system-time">${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false})}<small>SYSTEM TIME</small></time></div><div class="hud-condition"><span>${icon(weatherIcon(w.weather))}<b>${esc(w.weather)}</b><small>${esc(w.temperature)}° · ${esc(w.phase)}</small></span><span>${icon("location")}<b>${esc(w.season)}</b><small>WORLD CONDITION</small></span></div><div class="hud-mission"><div><small>ACTIVE QUEST</small><strong>${activeQuest ? esc(activeQuest.title) : "FREE ROAM"}</strong><span>${activeQuest ? "ACTIVE" : "次の行動は自由です"}</span></div>${nextMission ? `<button data-page="log"><small>NEXT EVENT</small><strong>${calendarTime(nextMission)}</strong><span>${esc(nextMission.title)}</span></button>` : `<div><small>NEXT EVENT</small><strong>OPEN</strong><span>固定EVENTなし</span></div>`}</div><div class="hud-effects"><small>STATUS EFFECT</small><div>${current.effects.map(([name,,tone]) => `<span class="${tone}"><i></i>${esc(name)}</span>`).join("")}</div></div>${latestMessage ? `<button class="hud-system-message" data-page="systemlog"><small>SYSTEM MESSAGE / ${esc(latestMessage.time)}</small><strong>${esc(latestMessage.title)}</strong><b>›</b></button>` : ""}</section>
   <button class="card glass navigator-greeting" data-page="navigator"><div class="navigator-greeting-head"><i></i><p class="eyebrow">navigator / online</p><span>OPEN →</span></div><strong>${esc(greeting.greeting)}</strong><div class="greeting-signals">${greeting.details.map((detail) => `<span>${esc(detail)}</span>`).join("")}</div></button>
   <section class="card glass world-card"><div class="section-head"><p class="eyebrow">world state</p><p class="world-live"><i></i>LIVE</p></div><div class="world-hero"><div class="location-mark">${icon("location")}</div><div class="place"><div><h2>${esc(w.location)}</h2><p class="region">${esc(w.region)}</p></div><span class="temperature">${esc(w.temperature)}°</span></div></div><div class="tiles visual-tiles"><div class="tile"><span class="tile-icon season-icon">${icon("sun")}</span><p class="eyebrow">season</p><b>${esc(w.season)}</b></div><div class="tile"><span class="tile-icon">${icon(phaseIcon(w.phase))}</span><p class="eyebrow">phase</p><b>${esc(w.phase)}</b></div><div class="tile weather-tile"><span class="tile-icon">${icon(weatherIcon(w.weather))}</span><p class="eyebrow">weather</p><b>${esc(w.weather)}</b></div></div><p class="ambience">${esc(w.ambience)}</p></section>
@@ -604,6 +644,7 @@ function renderHome() {
   app.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => openView(button.dataset.action)));
   app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
   app.querySelectorAll(".header, .stack > .card, .action-dock").forEach((element, index) => element.style.setProperty("--enter-delay", `${index * 75}ms`));
+  if (transition) setTimeout(() => { delete state.pendingWorldTransition; save(); app.querySelector(".world-transition")?.remove(); }, 1350);
   activateGlassPhysics();
   startCoreAmbientFeedback();
   clearInterval(homeClock);
@@ -680,6 +721,7 @@ function renderPage(page) {
   if (page === "system") content += renderTitleCollection();
   if (page === "system") content += renderNotificationSettings();
   if (page === "system") content += renderNavigatorSettings();
+  if (page === "system") content += renderAreaSettings();
   if (page === "__player") page = "player";
   if (page === "__navigator") page = "navigator";
   if (page === "__systemlog") page = "systemlog";
@@ -691,6 +733,15 @@ function renderPage(page) {
   app.querySelector("#page-sync")?.addEventListener("click", sync);
   app.querySelector("#system-sync")?.addEventListener("click", sync);
   app.querySelector("#system-status")?.addEventListener("click", showStatus);
+  app.querySelector("#set-home-area")?.addEventListener("click", async () => {
+    try { await registerCurrentArea({ name:"HOME BASE", type:"home", radius:180 }); renderPage("system"); } catch { alert("位置情報を許可して、HOME BASEを登録してください。"); }
+  });
+  app.querySelector("#set-custom-area")?.addEventListener("click", async () => {
+    const name = app.querySelector("#custom-area-name")?.value; const radius = app.querySelector("#custom-area-radius")?.value;
+    if (!String(name || "").trim()) { alert("AREA名を入力してください。例：KGU / CAMPUS"); return; }
+    try { await registerCurrentArea({ name, type:"custom", radius }); renderPage("system"); } catch { alert("位置情報を許可して、AREAを登録してください。"); }
+  });
+  app.querySelectorAll("[data-remove-area]").forEach((button) => button.addEventListener("click", () => { state.areas = areaState().filter((area) => area.id !== button.dataset.removeArea); save(); renderPage("system"); }));
   app.querySelector("#connect-calendar")?.addEventListener("click", () => connectGoogleCalendar("system"));
   app.querySelector("#allow-notifications")?.addEventListener("click", async () => { const result = await requestLifeNotifications(); if (result === "granted") { await showLifeNotification("SYSTEM MESSAGE", "SYSTEM LINK COMPLETE\nNOTIFICATION CHANNEL: OPEN", "permission-confirmed"); } renderPage("system"); });
   app.querySelector("#test-notification")?.addEventListener("click", () => showLifeNotification("SYSTEM MESSAGE", "TEST SIGNAL RECEIVED\nPLAYER LINK: STABLE\nNo action required.", "notification-test"));
