@@ -477,10 +477,12 @@ function bindSkillNetworkGestures() {
   viewport.addEventListener("touchend", (event) => { if (gesture && event.touches.length < 2) { gesture = null; save(); } }, { passive:true });
 }
 function filterVisibleSkillResults(query) {
-  const keyword = String(query || "").trim().toLowerCase();
-  app.querySelectorAll(".skill-discover-list button").forEach((button) => {
-    button.hidden = Boolean(keyword) && !button.textContent.toLowerCase().includes(keyword);
-  });
+  const list = app.querySelector(".skill-discover-list");
+  if (!list) return;
+  const skills = skillState(); const keyword = String(query || "").trim().toLowerCase(); const domain = skills.domain || "all";
+  const results = skillNodes.filter((node) => node.kind !== "composite" && (domain === "all" || node.domain === domain) && (!keyword || `${node.label} ${node.domain}`.toLowerCase().includes(keyword))).slice(0,80);
+  list.innerHTML = results.length ? results.map((node) => `<button class="${skills.selected === node.id ? "is-selected" : ""}" data-skill-select="${node.id}"><i class="${skillStatus(node)}"></i><span>${esc(node.label)}<small>${esc(node.domain)}</small></span><b>${skillStatusLabel[skillStatus(node)]}</b></button>`).join("") : `<div class="empty-skill-state"><i></i><strong>一致するスキルがありません</strong><p>別の言葉や、ALL DOMAINSで探してみてください。</p></div>`;
+  list.querySelectorAll("[data-skill-select]").forEach((button) => button.addEventListener("click", () => { skills.selected = button.dataset.skillSelect; skills.mode = "discover"; save(); renderPage("skills"); }));
 }
 function boot() {
   clearInterval(homeClock);
