@@ -56,6 +56,24 @@ function checkLifeReminders() {
   if (settings.evening && hour === 21 && minute < 2) sendOnce(`${stamp}:evening`, "LIFE SYSTEM", "NIGHT PHASE。今日の世界を閉じますか？");
   if (settings.calendar) (state.calendar?.events || []).forEach((event) => { const start = new Date(event.start?.dateTime || event.start?.date); const minutes = Math.round((start - now) / 60000); const key = `${event.id}:${start.toISOString()}`; if (minutes > 0 && minutes <= 30) sendOnce(key, "次のWORLD MISSION", `${event.title}まであと${minutes}分です。`); });
 }
+function checkLifeReminders() {
+  const settings = notificationSettings(); if (notificationPermission() !== "granted") return;
+  const now = new Date(); const stamp = dateKey(); const hour = now.getHours(); const minute = now.getMinutes();
+  const sendOnce = (key,title,body) => { if (settings.sent[key]) return; settings.sent[key] = now.toISOString(); save(); showLifeNotification(title, body, key); };
+  const todayEvents = (state.calendar?.events || []).filter((event) => new Date(event.start?.dateTime || event.start?.date).toDateString() === now.toDateString());
+  if (settings.morning && hour === 8 && minute < 2) {
+    const first = todayEvents.find((event) => new Date(event.start?.dateTime || event.start?.date) > now);
+    sendOnce(`${stamp}:morning`, "SYSTEM MESSAGE", `WORLD LOGIN\nTODAY LOAD: ${todayEvents.length ? `${todayEvents.length} FIXED EVENTS` : "FREE ROAM"}${first ? `\nFIRST EVENT: ${calendarTime(first)}  《${first.title}》` : ""}`);
+  }
+  if (settings.evening && hour === 21 && minute < 2) sendOnce(`${stamp}:evening`, "SYSTEM MESSAGE", "NIGHT PHASE\nTODAY SESSIONは終了へ向かっています。\nNo action required.");
+  if (settings.calendar) (state.calendar?.events || []).forEach((event) => {
+    const start = new Date(event.start?.dateTime || event.start?.date); const minutes = Math.round((start - now) / 60000); const key = `${event.id}:${start.toISOString()}`;
+    if (minutes > 0 && minutes <= 30) {
+      const urgency = minutes <= 5 ? "EVENT IMMINENT" : minutes <= 12 ? "PREPARATION WINDOW CLOSING" : "FIXED EVENT APPROACHING";
+      sendOnce(key, "SYSTEM MESSAGE", `${urgency}\n《${event.title}》\nSTART WINDOW: ${String(minutes).padStart(2,"0")}:00\n${event.location ? `LOCATION: ${event.location}` : "PREPARATION AVAILABLE"}`);
+    }
+  });
+}
 function systemFeedback(kind = "select", page = "") {
   const settings = feedbackSettings();
   const categoryPitch = { world:330, player:245, navigator:465, archive:650, log:525, sound:720, system:365 };
@@ -553,8 +571,8 @@ function renderPage(page) {
   app.querySelector("#system-sync")?.addEventListener("click", sync);
   app.querySelector("#system-status")?.addEventListener("click", showStatus);
   app.querySelector("#connect-calendar")?.addEventListener("click", () => connectGoogleCalendar("system"));
-  app.querySelector("#allow-notifications")?.addEventListener("click", async () => { const result = await requestLifeNotifications(); if (result === "granted") { await showLifeNotification("LIFE SYSTEM", "SYSTEM LINK COMPLETE。通知が有効になりました。", "permission-confirmed"); } renderPage("system"); });
-  app.querySelector("#test-notification")?.addEventListener("click", () => showLifeNotification("LIFE SYSTEM", "テスト通知です。WORLD SIGNALは正常です。", "notification-test"));
+  app.querySelector("#allow-notifications")?.addEventListener("click", async () => { const result = await requestLifeNotifications(); if (result === "granted") { await showLifeNotification("SYSTEM MESSAGE", "SYSTEM LINK COMPLETE\nNOTIFICATION CHANNEL: OPEN", "permission-confirmed"); } renderPage("system"); });
+  app.querySelector("#test-notification")?.addEventListener("click", () => showLifeNotification("SYSTEM MESSAGE", "TEST SIGNAL RECEIVED\nPLAYER LINK: STABLE\nNo action required.", "notification-test"));
   app.querySelectorAll("[data-notification-toggle]").forEach((button) => button.addEventListener("click", () => { const settings = notificationSettings(); const key = button.dataset.notificationToggle; settings[key] = !settings[key]; save(); renderPage("system"); }));
   app.querySelectorAll("[data-intervention-level]").forEach((button) => button.addEventListener("click", () => { navigatorSettings().intervention = button.dataset.interventionLevel; save(); systemFeedback("confirm"); renderPage("system"); }));
   app.querySelectorAll("[data-system-target]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.systemTarget)));
