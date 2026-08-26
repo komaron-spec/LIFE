@@ -194,19 +194,31 @@ function boot() {
   setTimeout(() => { clearInterval(timer); renderHome(); if (!state.status?.[dateKey()]) showStatus(); }, 1900);
 }
 
+async function prefectureFromCoordinates(lat, lon) {
+  try {
+    const url = `https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`;
+    const data = await fetch(url).then((r) => r.ok ? r.json() : Promise.reject());
+    const prefectureCode = Number(String(data.results?.muniCd || "").slice(0, 2));
+    const prefecture = japanAtlas[prefectureCode - 1];
+    return prefecture ? { name:prefecture.key, municipality:data.results?.lv01Nm || "" } : null;
+  } catch { return null; }
+}
 async function reverseGeocode(lat, lon) {
+  const prefecturePromise = prefectureFromCoordinates(lat, lon);
   const nominatim = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=10&addressdetails=1&accept-language=en`;
   try {
     const data = await fetch(nominatim).then((r) => r.ok ? r.json() : Promise.reject());
     const address = data.address || {};
     const locality = address.city || address.town || address.village || address.county || address.state;
-    if (locality) return { location: String(locality).toUpperCase(), region: [address.state, address.country].filter(Boolean).join(" / ").toUpperCase() || "CURRENT AREA" };
+    const prefecture = await prefecturePromise;
+    if (locality) return { location: String(locality).toUpperCase(), region: [prefecture?.name || address.state, address.country].filter(Boolean).join(" / ").toUpperCase() || "CURRENT AREA" };
   } catch { /* Try the secondary public resolver below. */ }
   const fallback = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=en`;
   const data = await fetch(fallback).then((r) => r.ok ? r.json() : Promise.reject());
   const locality = data.city || data.locality || data.principalSubdivision;
-  if (!locality) throw new Error("no place");
-  return { location: String(locality).toUpperCase(), region: [data.principalSubdivision, data.countryName].filter(Boolean).join(" / ").toUpperCase() || "CURRENT AREA" };
+  const prefecture = await prefecturePromise;
+  if (!locality && !prefecture) throw new Error("no place");
+  return { location: String(locality || prefecture.municipality || prefecture.name).toUpperCase(), region: [prefecture?.name || data.principalSubdivision, data.countryName || "JAPAN"].filter(Boolean).join(" / ").toUpperCase() || "CURRENT AREA" };
 }
 async function weather(lat, lon) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`;
