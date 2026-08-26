@@ -452,6 +452,12 @@ function bindSkillNetworkGestures() {
   viewport.addEventListener("touchmove", (event) => { if (!gesture || event.touches.length !== 2) return; event.preventDefault(); applyZoom(gesture.zoom * distance(event.touches) / gesture.distance); }, { passive:false });
   viewport.addEventListener("touchend", (event) => { if (gesture && event.touches.length < 2) { gesture = null; save(); } }, { passive:true });
 }
+function filterVisibleSkillResults(query) {
+  const keyword = String(query || "").trim().toLowerCase();
+  app.querySelectorAll(".skill-discover-list button").forEach((button) => {
+    button.hidden = Boolean(keyword) && !button.textContent.toLowerCase().includes(keyword);
+  });
+}
 function boot() {
   clearInterval(homeClock);
   app.innerHTML = `<section class="boot"><div class="boot-world"><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">real world interface</p><div class="progress"><i></i></div><p id="boot-copy">世界との接続を準備しています…</p></div></section>`;
@@ -673,7 +679,7 @@ function renderPage(page) {
   app.querySelectorAll("[data-skill-node]").forEach((button) => button.addEventListener("click", () => { const skills = skillState(); skills.selected = button.dataset.skillNode; skills.mode = "discover"; save(); renderPage("skills"); }));
   app.querySelectorAll("[data-skill-select]").forEach((button) => button.addEventListener("click", () => { const skills = skillState(); skills.selected = button.dataset.skillSelect; skills.mode = "discover"; save(); renderPage("skills"); }));
   app.querySelectorAll("[data-skill-domain-shortcut]").forEach((button) => button.addEventListener("click", () => { const skills = skillState(); skills.domain = button.dataset.skillDomainShortcut; skills.mode = "discover"; save(); renderPage("skills"); }));
-  app.querySelector("#skill-search")?.addEventListener("input", (event) => { skillState().query = event.target.value; save(); renderPage("skills"); });
+  app.querySelector("#skill-search")?.addEventListener("input", (event) => { skillState().query = event.target.value; save(); filterVisibleSkillResults(event.target.value); });
   app.querySelector("#skill-domain")?.addEventListener("change", (event) => { skillState().domain = event.target.value; save(); renderPage("skills"); });
   app.querySelector("#save-skill-record")?.addEventListener("click", () => { const skills = skillState(); const node = skillNodes.find((item) => item.id === skills.selected); if (!node) return; const previous = skillStatus(node); const status = app.querySelector("#skill-status-select").value; const note = app.querySelector("#skill-note").value.trim(); skills.records[node.id] = { status, note, updatedAt:new Date().toISOString() }; skills.history.unshift({ id:crypto.randomUUID(), nodeId:node.id, label:node.label, status, note, date:new Date().toLocaleDateString("en-CA") }); skills.history = skills.history.slice(0,200); if (status !== previous) recordSystemMessage({ level:["passive","mastered"].includes(status) ? 3 : status === "acquired" ? 2 : 1, title:status === "mastered" ? "SKILL MASTERED" : status === "passive" ? "NEW PASSIVE SKILL DETECTED" : "SKILL UPDATE", detail:`${node.label} → ${skillStatusLabel[status]}`, target:"skills" }); save(); systemFeedback(status === "locked" ? "lock" : "discovery"); skills.mode = "history"; renderPage("skills"); });
   app.querySelectorAll("[data-skill-zoom]").forEach((button) => button.addEventListener("click", () => { const skills = skillState(); skills.zoom = Math.max(.5, Math.min(2.25, (Number(skills.zoom) || .72) + Number(button.dataset.skillZoom))); save(); renderPage("skills"); }));
