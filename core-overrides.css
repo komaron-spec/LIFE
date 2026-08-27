@@ -221,3 +221,14 @@ body::after { opacity:.36; }
 .play-init button { flex:none; padding:10px 11px; white-space:nowrap; }
 .session-history { margin:12px 0 0; padding-top:10px; border-top:1px solid rgba(139,175,210,.16); color:#91a3b9; font:8px ui-monospace,monospace; letter-spacing:.05em; }
 @keyframes session-pulse { 50% { transform:scale(.72); opacity:.56; box-shadow:0 0 3px rgba(143,220,193,.5); } }
+
+/* Compact configuration controls: no truncated actions on a phone. */
+.play-init { display:grid; grid-template-columns:1fr; align-items:stretch; }
+.play-init button { width:100%; white-space:normal; }
+.area-actions { gap:10px; }
+.area-actions > div,.area-actions .area-home-setup,.area-actions .area-custom-setup { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.area-actions p { grid-column:1 / -1; margin:0 2px; color:#8298b1; font:8px ui-monospace,monospace; letter-spacing:.1em; }
+.area-actions input { grid-column:1 / -1; }
+.area-actions select { grid-column:1 / -1; width:100%; }
+.area-actions button,.area-actions > div button { grid-column:auto; min-width:0; padding:10px 6px; white-space:normal; font-size:10px; line-height:1.25; }
+.area-home-setup,.area-custom-setup { padding:10px; border:1px solid rgba(255,255,255,.48); border-radius:15px; background:rgba(255,255,255,.14); }
