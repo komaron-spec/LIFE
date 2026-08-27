@@ -1,5 +1,5 @@
 import { japanAtlas, worldAtlas } from "./atlas-data.js";
-import { skillNodes, skillDomains } from "./skills-data.js";
+import { skillNodes, skillDomains } from "./skills-data.js?v=2";
 
 const app = document.querySelector("#app");
 const KEY = "life-system-v1";
