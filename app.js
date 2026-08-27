@@ -297,6 +297,33 @@ const icon = (name) => {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.haze}</svg>`;
 };
 const pageNav = (active) => `<nav class="page-nav glass" aria-label="LIFE SYSTEM navigation">${[["world","WORLD"],["archive","ATLAS"],["player","PLAYER"],["skills","SKILL"],["navigator","NAVI"],["log","LOG"],["sound","SOUND"],["system","SYSTEM"]].map(([name,label]) => `<button class="${active === name ? "is-active" : ""}" data-page="${name}" aria-current="${active === name ? "page" : "false"}">${label}</button>`).join("")}</nav>`;
+const swipePages = ["world","archive","player","skills","navigator","log","sound","system"];
+function bindPageSwipe(page) {
+  const shell = app.querySelector(".shell");
+  if (!shell) return;
+  const currentPage = page === "systemlog" ? "system" : page;
+  const currentIndex = swipePages.indexOf(currentPage);
+  if (currentIndex < 0) return;
+  let start;
+  shell.addEventListener("touchstart", (event) => {
+    if (event.touches.length !== 1) { start = undefined; return; }
+    const target = event.target;
+    if (target.closest("input, textarea, select, iframe, .skill-network-viewport, .page-nav, .action-dock, .view-layer")) { start = undefined; return; }
+    const touch = event.touches[0];
+    start = { x:touch.clientX, y:touch.clientY, at:Date.now() };
+  }, { passive:true });
+  shell.addEventListener("touchend", (event) => {
+    if (!start || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0]; const dx = touch.clientX - start.x; const dy = touch.clientY - start.y; const elapsed = Date.now() - start.at;
+    start = undefined;
+    if (elapsed > 750 || Math.abs(dx) < 68 || Math.abs(dx) < Math.abs(dy) * 1.45) return;
+    const nextIndex = currentIndex + (dx < 0 ? 1 : -1);
+    const nextPage = swipePages[nextIndex];
+    if (!nextPage) return;
+    systemFeedback("select");
+    navigate(nextPage);
+  }, { passive:true });
+}
 function weatherIcon(weather) { if (/RAIN|DRIZZLE|SHOWER|THUNDER/.test(weather)) return "rain"; if (/CLEAR/.test(weather)) return "sun"; if (/CLOUD|OVERCAST/.test(weather)) return "cloud"; return "haze"; }
 function phaseIcon(value) { return /NIGHT/.test(value) ? "moon" : /MORNING|AFTERNOON|EVENING/.test(value) ? "clock" : "clock"; }
 
@@ -671,6 +698,7 @@ function renderHome() {
   app.querySelector("#close-player-core")?.addEventListener("click", () => { state.coreExpanded = false; save(); systemFeedback("back"); renderHome(); });
   app.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => openView(button.dataset.action)));
   app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
+  bindPageSwipe("world");
   app.querySelectorAll(".header, .stack > .card, .action-dock").forEach((element, index) => element.style.setProperty("--enter-delay", `${index * 75}ms`));
   if (transition) setTimeout(() => { delete state.pendingWorldTransition; save(); app.querySelector(".world-transition")?.remove(); }, 1350);
   activateGlassPhysics();
@@ -763,6 +791,7 @@ function renderPage(page) {
   if (page === "skills") requestAnimationFrame(localiseSkillChrome);
   app.innerHTML = `<div class="shell page-shell page-enter" data-page="${page}"><header class="page-header"><button class="home-button" data-home>← <span>HOME</span></button><p class="eyebrow">LIFE SYSTEM</p></header>${pageNav(page)}<main class="page-content">${content}</main></div>`;
   app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
+  bindPageSwipe(page);
   app.querySelector("[data-home]").addEventListener("click", () => { systemFeedback("back"); const shell = app.querySelector(".shell"); shell.classList.add("page-exit"); setTimeout(renderHome, 240); });
   app.querySelector("#page-sync")?.addEventListener("click", sync);
   app.querySelector("#system-sync")?.addEventListener("click", sync);
