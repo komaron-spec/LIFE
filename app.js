@@ -58,13 +58,15 @@ let homeBgmSceneId;
 let fieldEntryAudio;
 const feedbackSettings = () => (state.feedback ||= { sound:true });
 const homeBgmSettings = () => (state.homeBgm ||= { enabled:true });
+function isCampusArea(world = state.world || {}) { return Boolean(world.area?.registered && /CAMPUS|KGU|大学|キャンパス/i.test(String(world.area.name || ""))); }
 const homeBgmScenes = [
   { id:"christmas-world", label:"CHRISTMAS WORLD", source:"./assets/audio/christmas-world.mp3", matches:(now) => now.getMonth() === 11 && [24,25].includes(now.getDate()) },
+  { id:"campus-day", label:"CAMPUS / DAY", source:"./assets/audio/campus-day.mp3", matches:(now, world) => isCampusArea(world) && ["MORNING","AFTERNOON"].includes(phase(now.getHours())) },
   { id:"home-deep-night", label:"HOME / DEEP NIGHT", source:"./assets/audio/home-deep-night.mp3", matches:(now) => { const minutes = now.getHours() * 60 + now.getMinutes(); return minutes >= 90 && minutes < 270; } },
   { id:"home-morning", label:"HOME / MORNING", source:"./assets/audio/home-morning.mp3", matches:(now) => now.getHours() >= 5 && now.getHours() < 11 },
   { id:"home-night", label:"HOME / NIGHT", source:"./assets/audio/home-night.mp3", matches:() => true }
 ];
-function selectedHomeBgmScene(now = new Date()) { return homeBgmScenes.find((scene) => scene.matches(now)) || homeBgmScenes.at(-1); }
+function selectedHomeBgmScene(now = new Date(), world = state.world || {}) { return homeBgmScenes.find((scene) => scene.matches(now, world)) || homeBgmScenes.at(-1); }
 function getHomeBgm(scene = selectedHomeBgmScene()) {
   if (!homeBgm) {
     homeBgm = new Audio(scene.source);
@@ -124,7 +126,7 @@ function playMorningFieldEntry(previous, next, now = new Date()) {
 function renderHomeBgmControl() {
   const enabled = homeBgmSettings().enabled;
   const scene = selectedHomeBgmScene();
-  const title = scene.id === "christmas-world" ? "Cherry Berry Merry" : scene.id === "home-morning" ? "Midsummer cat" : scene.id === "home-deep-night" ? "Suger story" : "step by step - night arranged";
+  const title = scene.id === "christmas-world" ? "Cherry Berry Merry" : scene.id === "campus-day" ? "Koi is Love" : scene.id === "home-morning" ? "Midsummer cat" : scene.id === "home-deep-night" ? "Suger story" : "step by step - night arranged";
   return `<section class="detail-card glass home-bgm-control"><div class="section-head"><p class="eyebrow">local world audio</p><span>${enabled ? scene.label : "OFF"}</span></div><strong>HOME AMBIENCE</strong><p>${scene.label}：${title}。最初の操作後から小さな音量でループします。</p><button class="subtle-action" id="toggle-home-bgm">${enabled ? "HOME BGMを停止" : "HOME BGMを開始"}</button></section>`;
 }
 const notificationSettings = () => (state.notifications ||= { morning:true, evening:true, calendar:true, sent:{} });
