@@ -55,6 +55,7 @@ let idleTimer;
 let homeBgm;
 let homeBgmFade;
 let homeBgmSceneId;
+let fieldEntryAudio;
 const feedbackSettings = () => (state.feedback ||= { sound:true });
 const homeBgmSettings = () => (state.homeBgm ||= { enabled:true });
 const homeBgmScenes = [
@@ -103,6 +104,21 @@ function stopHomeBgm() {
   homeBgmSettings().enabled = false; save();
   if (!homeBgm) return;
   fadeHomeBgm(0, 360, () => homeBgm.pause());
+}
+function isMorningFieldEntry(previous = {}, next = {}, now = new Date()) {
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  return minutes < 540 && previous.area?.type === "home" && previous.area?.id !== next.area?.id;
+}
+function playMorningFieldEntry(previous, next, now = new Date()) {
+  if (!isMorningFieldEntry(previous, next, now) || (fieldEntryAudio && !fieldEntryAudio.paused)) return;
+  const key = `${dateKey()}:${previous.area.id}:morning-field-entry`;
+  if (state.audioEvents?.[key]) return;
+  const resumeHomeBgm = Boolean(homeBgm && !homeBgm.paused && homeBgmSettings().enabled);
+  if (resumeHomeBgm) fadeHomeBgm(.025, 260);
+  fieldEntryAudio = new Audio("./assets/audio/morning-field-entry.mp3");
+  fieldEntryAudio.loop = false; fieldEntryAudio.preload = "auto"; fieldEntryAudio.volume = .001;
+  fieldEntryAudio.addEventListener("ended", () => { if (resumeHomeBgm && homeBgmSettings().enabled) fadeHomeBgm(.16, 700); }, { once:true });
+  fieldEntryAudio.play().then(() => { state.audioEvents ||= {}; state.audioEvents[key] = now.toISOString(); save(); const started = performance.now(); const fade = (time) => { const progress = Math.min(1, (time - started) / 800); fieldEntryAudio.volume = .24 * progress; if (progress < 1) requestAnimationFrame(fade); }; requestAnimationFrame(fade); }).catch(() => { if (resumeHomeBgm) fadeHomeBgm(.16, 400); });
 }
 function renderHomeBgmControl() {
   const enabled = homeBgmSettings().enabled;
@@ -709,7 +725,9 @@ async function sync() {
   } catch { world.ambience = "位置情報なしで世界へ入りました。準備ができたら、もう一度SYNCできます。"; }
   state.lastDiscovery = false;
   world.area = worldArea(world);
-  const transition = detectWorldTransition(state.world, world, now);
+  const previousWorld = state.world;
+  const transition = detectWorldTransition(previousWorld, world, now);
+  const playEntryTrack = isMorningFieldEntry(previousWorld, world, now);
   const detectedEvents = [...detectWorldEvents(state.world, world, now), ...(transition ? [transition] : []), ...syncArchiveDiscovery(world, now), ...detectCalendarCompletionEvents(now)];
   state.world = world;
   const title = world.weather !== "WEATHER UNAVAILABLE" ? `${world.weather} detected` : "World sync completed";
@@ -722,7 +740,7 @@ async function sync() {
   const areaCount = Object.keys(archiveState().prefectures).length;
   if (areaCount >= 3 && !state.systemFlags?.atlasThree) { state.systemFlags ||= {}; state.systemFlags.atlasThree = true; recordSystemMessage({ level:3, title:"A condition has been fulfilled.", detail:"Long-term flag updated. Tap to reveal.", target:"archive" }); }
   evaluateTitleUnlocks(now);
-  save(); if (state.lastDiscovery) systemFeedback("discovery"); renderSync(detectedEvents.length ? `${detectedEvents.length} NEW EVENT${detectedEvents.length > 1 ? "S" : ""} DETECTED` : "WORLD SYNC COMPLETE"); setTimeout(renderHome, detectedEvents.length ? 1350 : 700);
+  save(); if (playEntryTrack) playMorningFieldEntry(previousWorld, world, now); if (state.lastDiscovery) systemFeedback("discovery"); renderSync(detectedEvents.length ? `${detectedEvents.length} NEW EVENT${detectedEvents.length > 1 ? "S" : ""} DETECTED` : "WORLD SYNC COMPLETE"); setTimeout(renderHome, detectedEvents.length ? 1350 : 700);
 }
 function applyWorldAtmosphere(world) {
   app.dataset.phase = String(world.phase || phase(new Date().getHours())).toLowerCase();
