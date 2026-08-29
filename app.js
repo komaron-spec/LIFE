@@ -358,7 +358,7 @@ function bindPageSwipe(page) {
     const nextPage = swipePages[nextIndex];
     if (!nextPage) return;
     systemFeedback("select");
-    navigate(nextPage);
+    navigate(nextPage, dx < 0 ? "forward" : "back");
   }, { passive:true });
 }
 function weatherIcon(weather) { if (/RAIN|DRIZZLE|SHOWER|THUNDER/.test(weather)) return "rain"; if (/CLEAR/.test(weather)) return "sun"; if (/CLOUD|OVERCAST/.test(weather)) return "cloud"; return "haze"; }
@@ -752,12 +752,15 @@ function renderHome() {
   }, 1000);
 }
 
-function navigate(page) {
+function navigate(page, requestedDirection) {
   const screen = app.querySelector(".shell");
   if (!screen || screen.dataset.page === page) return;
+  const current = screen.dataset.page === "home" ? "world" : screen.dataset.page === "systemlog" ? "system" : screen.dataset.page;
+  const target = page === "systemlog" ? "system" : page;
+  const direction = requestedDirection || (swipePages.indexOf(target) < swipePages.indexOf(current) ? "back" : "forward");
   systemFeedback("enter", page);
-  screen.classList.add("page-exit");
-  setTimeout(() => renderPage(page), 240);
+  screen.classList.add(`page-exit-${direction}`);
+  setTimeout(() => renderPage(page, direction), 300);
 }
 
 function renderSkillsPage() {
@@ -796,7 +799,7 @@ function renderSystemLog() {
   return `<section class="page-hero system-log-hero"><p class="eyebrow">game engine / event history</p><h1>SYSTEM LOG</h1><p>現実世界で検出された変化を、PLAYERへのSYSTEM MESSAGEとして記録します。</p><div class="log-stat"><b>${today.length}</b><span>TODAY<br>MESSAGES</span></div></section><section class="detail-card glass system-log-card"><div class="section-head"><p class="eyebrow">today's system messages</p><span>${entries.length} SAVED</span></div>${entries.length ? entries.map((entry) => { const meta = systemMessageMeta[entry.level] || systemMessageMeta[1]; return `<button class="system-log-entry ${meta.className}" data-system-target="${entry.target}"><time>${esc(entry.date === dateKey() ? entry.time : entry.date)}</time><i></i><div><small>${meta.label}</small><strong>${esc(entry.title)}</strong><p>${esc(entry.detail)}</p></div><b>›</b></button>`; }).join("") : `<div class="timeline-empty"><i></i><strong>SYSTEM MESSAGEはまだありません</strong><p>WORLD SYNCやスキル記録によって、現実の変化がここに残ります。</p></div>`}</section>`;
 }
 
-function renderPage(page) {
+function renderPage(page, transitionDirection = "forward") {
   clearInterval(homeClock);
   ensureDailySession();
   const w = state.world || { location:"WORLD NOT SYNCED", region:"SYNCを押して世界に入る", weather:"UNKNOWN", temperature:"—", phase:phase(new Date().getHours()), season:season(new Date().getMonth()), ambience:"最初のWORLD SYNCを待っています。" };
@@ -827,10 +830,10 @@ function renderPage(page) {
   if (page === "__systemlog") page = "systemlog";
   if (page === "log") content += renderWorldActivityTimeline();
   if (page === "skills") requestAnimationFrame(localiseSkillChrome);
-  app.innerHTML = `<div class="shell page-shell page-enter" data-page="${page}"><header class="page-header"><button class="home-button" data-home>← <span>HOME</span></button><p class="eyebrow">LIFE SYSTEM</p></header>${pageNav(page)}<main class="page-content">${content}</main></div>`;
+  app.innerHTML = `<div class="shell page-shell page-enter page-enter-${transitionDirection}" data-page="${page}"><header class="page-header"><button class="home-button" data-home>← <span>HOME</span></button><p class="eyebrow">LIFE SYSTEM</p></header>${pageNav(page)}<main class="page-content">${content}</main></div>`;
   app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
   bindPageSwipe(page);
-  app.querySelector("[data-home]").addEventListener("click", () => { systemFeedback("back"); const shell = app.querySelector(".shell"); shell.classList.add("page-exit"); setTimeout(renderHome, 240); });
+  app.querySelector("[data-home]").addEventListener("click", () => { systemFeedback("back"); const shell = app.querySelector(".shell"); shell.classList.add("page-exit-back"); setTimeout(renderHome, 300); });
   app.querySelector("#page-sync")?.addEventListener("click", sync);
   app.querySelector("#system-sync")?.addEventListener("click", sync);
   app.querySelector("#system-status")?.addEventListener("click", showStatus);

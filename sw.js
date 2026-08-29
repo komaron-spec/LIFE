@@ -1,4 +1,4 @@
-const CACHE = "life-system-v61";
+const CACHE = "life-system-v62";
 const ASSETS = ["./", "./index.html", "./styles.css", "./core-overrides.css", "./app.js", "./atlas-data.js", "./skills-data.js", "./assets/audio/home-night.mp3", "./manifest.webmanifest", "./icons/icon.svg"];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
