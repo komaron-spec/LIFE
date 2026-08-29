@@ -56,8 +56,39 @@ let homeBgm;
 let homeBgmFade;
 let homeBgmSceneId;
 let fieldEntryAudio;
+let celebrationAudio;
 const feedbackSettings = () => (state.feedback ||= { sound:true });
 const homeBgmSettings = () => (state.homeBgm ||= { enabled:true });
+const celebrationState = () => (state.celebrations ||= { played:{}, pending:null });
+function celebrationKey(kind, now = new Date()) { return `${dateKey(now)}:${kind}`; }
+function queueCelebration(kind, label, detail, now = new Date()) {
+  const celebrations = celebrationState(); const key = celebrationKey(kind, now);
+  if (celebrations.played[key] || celebrations.pending?.key === key) return false;
+  celebrations.pending = { key, label, detail, queuedAt:now.toISOString() };
+  recordSystemMessage({ level:3, title:"CELEBRATION EVENT", detail:`${label} — ${detail}`, target:"player" });
+  save(); return true;
+}
+function scheduleLoginCelebration(now = new Date()) {
+  const birthday = new Date(`${playDataState().initializedAt}T00:00:00`);
+  if (birthday.getMonth() === now.getMonth() && birthday.getDate() === now.getDate()) return queueCelebration("birthday", "BIRTHDAY EVENT", "Happy birthday, PLAYER.", now);
+  const milestones = [100, 1000, 5000, 7777, 10000]; const day = gameDay(now);
+  if (milestones.includes(day)) return queueCelebration(`day-${day}`, "PLAY TIME MILESTONE", `DAY ${day.toLocaleString("en-US")} reached.`, now);
+  return false;
+}
+function playPendingCelebration() {
+  const celebrations = celebrationState(); const pending = celebrations.pending;
+  if (!pending || (celebrationAudio && !celebrationAudio.paused)) return false;
+  const resumeHomeBgm = Boolean(homeBgm && !homeBgm.paused && homeBgmSettings().enabled);
+  if (resumeHomeBgm) fadeHomeBgm(.018, 260);
+  celebrationAudio = new Audio("./assets/audio/celebration-event.mp3");
+  celebrationAudio.loop = false; celebrationAudio.preload = "auto"; celebrationAudio.volume = .001;
+  celebrationAudio.addEventListener("ended", () => { if (!homeBgmSettings().enabled) return; if (resumeHomeBgm) fadeHomeBgm(.16, 900); else startHomeBgm(); }, { once:true });
+  celebrationAudio.play().then(() => {
+    celebrations.played[pending.key] = new Date().toISOString(); celebrations.pending = null; save();
+    const started = performance.now(); const fade = (time) => { const progress = Math.min(1, (time - started) / 850); celebrationAudio.volume = .28 * progress; if (progress < 1) requestAnimationFrame(fade); }; requestAnimationFrame(fade);
+  }).catch(() => { if (resumeHomeBgm) fadeHomeBgm(.16, 400); });
+  return true;
+}
 function isCampusArea(world = state.world || {}) { return Boolean(world.area?.registered && /CAMPUS|KGU|大学|キャンパス/i.test(String(world.area.name || ""))); }
 function isOutsideHome(world = state.world || {}) { return Boolean(world.area?.type && world.area.type !== "home"); }
 function isRainWorld(world = state.world || {}) { return /RAIN|DRIZZLE|SHOWER|THUNDER/i.test(String(world.weather || "")); }
@@ -264,6 +295,7 @@ function evaluateTitleUnlocks(now = new Date()) {
     titles.unlocked[title.id] = { acquiredAt:now.toISOString(), rarity:title.rarity };
     state.log.unshift({ id:crypto.randomUUID(), day:dateKey(), time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"TITLE", title:"TITLE ACQUIRED", detail:`《${title.name}》 / ${title.rarity}` });
     recordSystemMessage({ level:3, title:"TITLE ACQUIRED", detail:`《${title.name}》`, target:"player" });
+    queueCelebration(`title-${title.id}`, "TITLE ACQUIRED", `《${title.name}》`, now);
   });
 }
 function renderTitleCollection() {
@@ -621,6 +653,7 @@ function filterVisibleSkillResults(query) {
 }
 function boot() {
   clearInterval(homeClock);
+  scheduleLoginCelebration();
   app.innerHTML = `<section class="boot"><div class="boot-world"><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">real world interface</p><div class="progress"><i></i></div><p id="boot-copy">世界との接続を準備しています…</p></div></section>`;
   const copies = ["世界との接続を準備しています…", "プレイヤーを確認しています…", "前回の世界を復元しています…"];
   let i = 0; const timer = setInterval(() => { i++; const el = document.querySelector("#boot-copy"); if (el) el.textContent = copies[i] || copies.at(-1); }, 580);
@@ -752,8 +785,9 @@ async function sync() {
   if (!detectedEvents.length) recordSystemMessage({ level:0, title:"WORLD SYNC COMPLETE", detail:world.location, target:"world" });
   const areaCount = Object.keys(archiveState().prefectures).length;
   if (areaCount >= 3 && !state.systemFlags?.atlasThree) { state.systemFlags ||= {}; state.systemFlags.atlasThree = true; recordSystemMessage({ level:3, title:"A condition has been fulfilled.", detail:"Long-term flag updated. Tap to reveal.", target:"archive" }); }
+  if (areaCount === japanAtlas.length) queueCelebration("japan-atlas-complete", "JAPAN ATLAS COMPLETE", "47 prefectures have been discovered.", now);
   evaluateTitleUnlocks(now);
-  save(); if (playEntryTrack) playMorningFieldEntry(previousWorld, world, now); if (state.lastDiscovery) systemFeedback("discovery"); renderSync(detectedEvents.length ? `${detectedEvents.length} NEW EVENT${detectedEvents.length > 1 ? "S" : ""} DETECTED` : "WORLD SYNC COMPLETE"); setTimeout(renderHome, detectedEvents.length ? 1350 : 700);
+  save(); if (playEntryTrack) playMorningFieldEntry(previousWorld, world, now); else playPendingCelebration(); if (state.lastDiscovery) systemFeedback("discovery"); renderSync(detectedEvents.length ? `${detectedEvents.length} NEW EVENT${detectedEvents.length > 1 ? "S" : ""} DETECTED` : "WORLD SYNC COMPLETE"); setTimeout(renderHome, detectedEvents.length ? 1350 : 700);
 }
 function applyWorldAtmosphere(world) {
   app.dataset.phase = String(world.phase || phase(new Date().getHours())).toLowerCase();
@@ -992,5 +1026,5 @@ function openView(name) {
 }
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js", { updateViaCache:"none" }));
 window.addEventListener("load", () => { checkLifeReminders(); setInterval(checkLifeReminders, 60_000); setInterval(syncHomeBgmScene, 60_000); });
-document.addEventListener("pointerdown", () => { startHomeBgm(); }, { once:true, passive:true });
+document.addEventListener("pointerdown", () => { if (!playPendingCelebration()) startHomeBgm(); }, { once:true, passive:true });
 boot();
