@@ -289,3 +289,10 @@ body::after { opacity:.36; }
 .world-core .world-globe::before,.world-core .world-globe::after,.world-core .world-glass-edge { display:none; }
 .world-glass-shell { position:absolute; inset:-1.8%; z-index:15; width:103.6%; height:103.6%; max-width:none; pointer-events:none; user-select:none; object-fit:fill; filter:brightness(1.015) saturate(.94); }
 .world-core .core-center { z-index:16; }
+
+/* Let the WORLD lead. The shell is only noticed after the scene inside it. */
+.world-glass-shell { opacity:.64; filter:brightness(1.01) saturate(.82); }
+.world-globe { clip-path:circle(50% at 50% 50%); -webkit-clip-path:circle(50% at 50% 50%); }
+.world-core[data-weather="clear"] .world-clouds { opacity:.055; transform:perspective(360px) rotateX(12deg) scale(.9); }
+.world-clouds { transform:perspective(360px) rotateX(9deg) scale(.94); transform-origin:50% 58%; }.world-clouds::before { opacity:.76; transform:translate3d(-4%,6%,0) scale(.78,.67); }.world-clouds::after { opacity:.58; transform:translate3d(8%,-8%,0) scale(.58,.48); }
+.world-core[data-weather="cloud"] .world-clouds { opacity:.48; }.world-core[data-weather="rain"] .world-clouds,.world-core[data-weather="thunder"] .world-clouds { opacity:.61; }
