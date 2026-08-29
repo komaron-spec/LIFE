@@ -296,3 +296,12 @@ body::after { opacity:.36; }
 .world-core[data-weather="clear"] .world-clouds { opacity:.055; transform:perspective(360px) rotateX(12deg) scale(.9); }
 .world-clouds { transform:perspective(360px) rotateX(9deg) scale(.94); transform-origin:50% 58%; }.world-clouds::before { opacity:.76; transform:translate3d(-4%,6%,0) scale(.78,.67); }.world-clouds::after { opacity:.58; transform:translate3d(8%,-8%,0) scale(.58,.48); }
 .world-core[data-weather="cloud"] .world-clouds { opacity:.48; }.world-core[data-weather="rain"] .world-clouds,.world-core[data-weather="thunder"] .world-clouds { opacity:.61; }
+
+/* Live celestial projection: the scene changes continuously while the CORE is open. */
+.world-core .world-sky { background:radial-gradient(circle at var(--sun-x) var(--sun-y),rgba(255,255,236,.94) 0 1.5%,rgba(255,220,172,.44) 8%,transparent 29%),linear-gradient(155deg,var(--sky-top),var(--sky-bottom)) !important; transition:background 1.2s linear; }
+.world-core .world-sky::after { position:absolute; inset:0; background:linear-gradient(105deg,rgba(10,25,62,.08) 31%,rgba(154,190,255,.12) 100%),url("./assets/world-core-night-sky.png") center/cover; content:""; opacity:var(--night-alpha); transition:opacity 1.2s linear; }
+.world-core .world-stars { opacity:var(--star-opacity) !important; transition:opacity 1.2s linear; }
+.world-core .world-sun { opacity:calc(1 - var(--night-alpha)) !important; transition:top 1.2s linear,left 1.2s linear,opacity 1.2s linear; }
+.world-core .world-moon { top:var(--moon-y); right:auto; left:var(--moon-x); width:34px; height:34px; overflow:hidden; background:#000 url("./assets/world-core-moon-texture.png") center/cover !important; box-shadow:0 0 13px 4px rgba(229,235,255,.48),0 0 25px 7px rgba(166,192,255,.18); mix-blend-mode:screen; opacity:var(--night-alpha) !important; transform:translate(-50%,-50%); transition:top 1.2s linear,left 1.2s linear,opacity 1.2s linear; }
+.world-core .world-moon::after { position:absolute; inset:-1px; border-radius:50%; background:rgba(9,20,51,.94); content:""; transform:translateX(var(--moon-shadow)); transition:transform 1.2s linear; }
+.world-core .world-clouds { opacity:var(--cloud-opacity) !important; transition:opacity 1.4s ease,filter 1.4s ease; }
