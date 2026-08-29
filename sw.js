@@ -1,5 +1,5 @@
-const CACHE = "life-system-v75";
-const ASSETS = ["./", "./index.html", "./styles.css", "./core-overrides.css", "./app.js", "./atlas-data.js", "./skills-data.js", "./assets/audio/celebration-event.mp3", "./assets/audio/rain-field.mp3", "./assets/audio/meal-phase.mp3", "./assets/audio/campus-day.mp3", "./assets/audio/christmas-world.mp3", "./assets/audio/morning-field-entry.mp3", "./assets/audio/home-deep-night.mp3", "./assets/audio/home-morning.mp3", "./assets/audio/home-night.mp3", "./manifest.webmanifest", "./icons/icon.svg"];
+const CACHE = "life-system-v76";
+const ASSETS = ["./", "./index.html", "./styles.css", "./core-overrides.css", "./app.js", "./atlas-data.js", "./skills-data.js", "./assets/world-core-night-sky.png", "./assets/audio/celebration-event.mp3", "./assets/audio/rain-field.mp3", "./assets/audio/meal-phase.mp3", "./assets/audio/campus-day.mp3", "./assets/audio/christmas-world.mp3", "./assets/audio/morning-field-entry.mp3", "./assets/audio/home-deep-night.mp3", "./assets/audio/home-morning.mp3", "./assets/audio/home-night.mp3", "./manifest.webmanifest", "./icons/icon.svg"];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", (event) => {
