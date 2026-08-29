@@ -365,3 +365,8 @@ body::after { opacity:.36; }
 @keyframes core-cloud-far { from { transform:translate3d(0,0,0) scale(.82); } to { transform:translate3d(var(--wind-far-x),var(--wind-far-y),0) scale(.85); } }
 @keyframes core-cloud-mid { from { transform:translate3d(0,0,0) scale(.94); } to { transform:translate3d(var(--wind-mid-x),var(--wind-mid-y),0) scale(.99); } }
 @keyframes core-cloud-near { from { transform:translate3d(0,0,0) scale(1.02); } to { transform:translate3d(var(--wind-x),var(--wind-y),0) scale(1.09); } }
+
+/* Humidity stays in the atmosphere: horizon haze and light scatter, never a flat white wash. */
+.world-core .world-sky::before { background:radial-gradient(ellipse at 50% 94%,rgba(214,225,237,.54) 0 8%,rgba(181,202,222,.22) 27%,transparent 56%),radial-gradient(circle at var(--moon-x) var(--moon-y),rgba(198,216,247,.26) 0 2%,rgba(169,194,233,.1) 12%,transparent 29%),radial-gradient(circle at var(--sun-x) var(--sun-y),rgba(255,238,210,.18) 0 4%,transparent 25%); mix-blend-mode:screen; }
+.world-core .world-stars { opacity:var(--star-visibility) !important; filter:contrast(var(--clarity)) saturate(var(--clarity)); }
+.world-core .world-horizon { opacity:var(--clarity); filter:contrast(var(--clarity)) saturate(var(--clarity)); transition:opacity 2.8s linear,filter 2.8s linear; }
