@@ -54,11 +54,18 @@ let systemAudio;
 let idleTimer;
 let homeBgm;
 let homeBgmFade;
+let homeBgmSceneId;
 const feedbackSettings = () => (state.feedback ||= { sound:true });
 const homeBgmSettings = () => (state.homeBgm ||= { enabled:true });
-function getHomeBgm() {
+const homeBgmScenes = [
+  { id:"home-morning", label:"HOME / MORNING", source:"./assets/audio/home-morning.mp3", matches:(hour) => hour >= 5 && hour < 11 },
+  { id:"home-night", label:"HOME / NIGHT", source:"./assets/audio/home-night.mp3", matches:() => true }
+];
+function selectedHomeBgmScene(now = new Date()) { return homeBgmScenes.find((scene) => scene.matches(now.getHours())) || homeBgmScenes.at(-1); }
+function getHomeBgm(scene = selectedHomeBgmScene()) {
   if (!homeBgm) {
-    homeBgm = new Audio("./assets/audio/home-night.mp3");
+    homeBgm = new Audio(scene.source);
+    homeBgmSceneId = scene.id;
     homeBgm.loop = true;
     homeBgm.preload = "auto";
     homeBgm.volume = 0.001;
@@ -77,9 +84,19 @@ function fadeHomeBgm(target, duration = 650, after) {
 }
 function startHomeBgm() {
   if (!homeBgmSettings().enabled) return Promise.resolve(false);
+  syncHomeBgmScene();
   const audio = getHomeBgm();
   const playback = audio.play();
   return playback.then(() => { fadeHomeBgm(.16, 900); return true; }).catch(() => false);
+}
+function syncHomeBgmScene() {
+  const next = selectedHomeBgmScene();
+  if (!homeBgm || homeBgmSceneId === next.id) return;
+  const audio = homeBgm; const keepPlaying = !audio.paused;
+  fadeHomeBgm(0, 460, () => {
+    audio.pause(); audio.src = next.source; audio.load(); audio.volume = 0.001; homeBgmSceneId = next.id;
+    if (keepPlaying && homeBgmSettings().enabled) audio.play().then(() => fadeHomeBgm(.16, 820)).catch(() => {});
+  });
 }
 function stopHomeBgm() {
   homeBgmSettings().enabled = false; save();
@@ -88,7 +105,8 @@ function stopHomeBgm() {
 }
 function renderHomeBgmControl() {
   const enabled = homeBgmSettings().enabled;
-  return `<section class="detail-card glass home-bgm-control"><div class="section-head"><p class="eyebrow">local world audio</p><span>${enabled ? "STANDBY" : "OFF"}</span></div><strong>HOME AMBIENCE</strong><p>「step by step - night arranged」を、最初の操作後から小さな音量でループします。</p><button class="subtle-action" id="toggle-home-bgm">${enabled ? "HOME BGMを停止" : "HOME BGMを開始"}</button></section>`;
+  const scene = selectedHomeBgmScene();
+  return `<section class="detail-card glass home-bgm-control"><div class="section-head"><p class="eyebrow">local world audio</p><span>${enabled ? scene.label : "OFF"}</span></div><strong>HOME AMBIENCE</strong><p>${scene.label}：${scene.id === "home-morning" ? "Midsummer cat" : "step by step - night arranged"}。最初の操作後から小さな音量でループします。</p><button class="subtle-action" id="toggle-home-bgm">${enabled ? "HOME BGMを停止" : "HOME BGMを開始"}</button></section>`;
 }
 const notificationSettings = () => (state.notifications ||= { morning:true, evening:true, calendar:true, sent:{} });
 const navigatorSettings = () => (state.navigator ||= { intervention:"standard" });
@@ -919,6 +937,6 @@ function openView(name) {
   layer.querySelector("#finish-day")?.addEventListener("click", () => { const title = "DAY COMPLETE"; const result = sessionSummary(); const session = dailySessionState(); session.status = "complete"; session.completedAt = new Date().toISOString(); state.sessionHistory ||= []; if (!state.sessionHistory.some((entry) => entry.day === session.day)) state.sessionHistory.unshift({ day:session.day, completedAt:session.completedAt, ...result }); if (!state.log.some((e) => e.day === dateKey() && e.title === title)) state.log.unshift({ id:crypto.randomUUID(), day:dateKey(), time:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"SYSTEM", title, detail:`${result.events} EVENTS · ${result.areas} AREAS · ${result.discoveries} DISCOVERIES` }); save(); closeView(); renderHome(); });
 }
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js", { updateViaCache:"none" }));
-window.addEventListener("load", () => { checkLifeReminders(); setInterval(checkLifeReminders, 60_000); });
+window.addEventListener("load", () => { checkLifeReminders(); setInterval(checkLifeReminders, 60_000); setInterval(syncHomeBgmScene, 60_000); });
 document.addEventListener("pointerdown", () => { startHomeBgm(); }, { once:true, passive:true });
 boot();
