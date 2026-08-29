@@ -930,10 +930,10 @@ function renderPage(page, transitionDirection = "forward") {
   if (page === "__systemlog") page = "systemlog";
   if (page === "log") content += renderWorldActivityTimeline();
   if (page === "skills") requestAnimationFrame(localiseSkillChrome);
-  app.innerHTML = `<div class="shell page-shell page-enter page-enter-${transitionDirection}" data-page="${page}"><header class="page-header"><button class="home-button" data-home>← <span>HOME</span></button><p class="eyebrow">LIFE SYSTEM</p></header>${pageNav(page)}<main class="page-content">${content}</main></div>`;
+  app.innerHTML = `<div class="shell page-shell page-enter page-enter-${transitionDirection}" data-page="${page}"><header class="page-header"><button class="home-button" data-home>← <span>HOME</span></button><p class="eyebrow">LIFE SYSTEM</p></header>${pageNav(page)}<main class="page-content">${content}</main><button class="home-fab glass" data-home aria-label="HOMEへ戻る"><i>⌂</i><span>HOME</span></button></div>`;
   app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
   bindPageSwipe(page);
-  app.querySelector("[data-home]").addEventListener("click", () => { systemFeedback("back"); const shell = app.querySelector(".shell"); shell.classList.add("page-exit-back"); setTimeout(renderHome, 300); });
+  app.querySelectorAll("[data-home]").forEach((button) => button.addEventListener("click", () => { systemFeedback("back"); const shell = app.querySelector(".shell"); shell.classList.add("page-exit-back"); setTimeout(renderHome, 300); }));
   app.querySelector("#page-sync")?.addEventListener("click", sync);
   app.querySelector("#system-sync")?.addEventListener("click", sync);
   app.querySelector("#area-sync-check")?.addEventListener("click", sync);
