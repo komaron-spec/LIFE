@@ -52,7 +52,44 @@ function ensureDailySession(now = new Date()) {
 }
 let systemAudio;
 let idleTimer;
+let homeBgm;
+let homeBgmFade;
 const feedbackSettings = () => (state.feedback ||= { sound:true });
+const homeBgmSettings = () => (state.homeBgm ||= { enabled:true });
+function getHomeBgm() {
+  if (!homeBgm) {
+    homeBgm = new Audio("./assets/audio/home-night.mp3");
+    homeBgm.loop = true;
+    homeBgm.preload = "auto";
+    homeBgm.volume = 0.001;
+  }
+  return homeBgm;
+}
+function fadeHomeBgm(target, duration = 650, after) {
+  const audio = getHomeBgm(); const from = audio.volume; const started = performance.now();
+  cancelAnimationFrame(homeBgmFade);
+  const frame = (now) => {
+    const progress = Math.min(1, (now - started) / duration);
+    audio.volume = Math.max(0, Math.min(1, from + (target - from) * progress));
+    if (progress < 1) homeBgmFade = requestAnimationFrame(frame); else after?.();
+  };
+  homeBgmFade = requestAnimationFrame(frame);
+}
+function startHomeBgm() {
+  if (!homeBgmSettings().enabled) return Promise.resolve(false);
+  const audio = getHomeBgm();
+  const playback = audio.play();
+  return playback.then(() => { fadeHomeBgm(.16, 900); return true; }).catch(() => false);
+}
+function stopHomeBgm() {
+  homeBgmSettings().enabled = false; save();
+  if (!homeBgm) return;
+  fadeHomeBgm(0, 360, () => homeBgm.pause());
+}
+function renderHomeBgmControl() {
+  const enabled = homeBgmSettings().enabled;
+  return `<section class="detail-card glass home-bgm-control"><div class="section-head"><p class="eyebrow">local world audio</p><span>${enabled ? "STANDBY" : "OFF"}</span></div><strong>HOME AMBIENCE</strong><p>「step by step - night arranged」を、最初の操作後から小さな音量でループします。</p><button class="subtle-action" id="toggle-home-bgm">${enabled ? "HOME BGMを停止" : "HOME BGMを開始"}</button></section>`;
+}
 const notificationSettings = () => (state.notifications ||= { morning:true, evening:true, calendar:true, sent:{} });
 const navigatorSettings = () => (state.navigator ||= { intervention:"standard" });
 const interventionLevels = {
@@ -776,6 +813,7 @@ function renderPage(page) {
   if (page === "archive") { const archive = archiveState(); const mode = state.atlasMode || "japan"; const discoveredPrefectures = japanAtlas.filter((item) => archive.prefectures[item.id]).length; const exploredPrefectures = japanAtlas.filter((item) => archive.places[`${item.id}:landmark`]).length; const detectedPrefecture = japanAtlas.find((item) => String(w.region || "").toUpperCase().includes(item.key)); const selected = japanAtlas.find((item) => item.id === state.atlasSelected) || detectedPrefecture || japanAtlas.find((item) => item.id === "nara"); const selectedState = archivePrefectureState(selected); const worldRegion = state.atlasWorldRegion || "ASIA"; const countriesInRegion = worldAtlas.filter((item) => item.region === worldRegion); content = `<section class="page-hero atlas-hero"><p class="eyebrow">system database / real world</p><h1>ARCHIVE</h1><p>実際に歩いた世界だけが、少しずつ色づいていく。</p><div class="atlas-stat"><span><b>${discoveredPrefectures}</b> / 47<small>JAPAN DISCOVERED</small></span><span><b>${Object.keys(archive.countries).length}</b> / ${worldAtlas.length}<small>WORLD GATEWAYS</small></span></div></section><section class="atlas-mode glass"><button class="${mode === "japan" ? "is-active" : ""}" data-atlas-mode="japan">JAPAN ATLAS</button><button class="${mode === "world" ? "is-active" : ""}" data-atlas-mode="world">WORLD ATLAS</button></section>${mode === "japan" ? `<section class="detail-card glass japan-atlas"><div class="atlas-head"><div><p class="eyebrow">japan exploration map</p><strong>${discoveredPrefectures} AREAS DISCOVERED</strong></div><span><i></i>LIVE GPS</span></div><div class="japan-map" aria-label="日本探索マップ">${japanAtlas.map((item) => `<button class="atlas-region ${archivePrefectureState(item)} ${selected.id === item.id ? "is-selected" : ""}" style="--x:${item.x};--y:${item.y}" data-atlas-pref="${item.id}" aria-label="${item.name}"><b>${item.name}</b><i></i></button>`).join("")}</div><div class="atlas-legend"><span><i class="unknown"></i>未発見</span><span><i class="discovered"></i>発見</span><span><i class="explored"></i>探索済み</span></div></section><section class="detail-card glass atlas-detail ${selectedState}"><div class="section-head"><p class="eyebrow">prefecture codex</p><span>${selectedState.toUpperCase()}</span></div><h2>${selected.name}</h2><p>${selectedState === "unknown" ? "このエリアはまだ霧に包まれています。実際に入ると、地図が開きます。" : selectedState === "discovered" ? "最初の領域を発見しました。代表スポットを訪れると探索度が上がります。" : "代表スポットを発見済み。この地域の世界はあなたの記録になりました。"}</p><div class="atlas-missions"><div class="${archive.places[`${selected.id}:landmark`] ? "complete" : ""}"><i></i><span>${selected.spot}</span><small>${archive.places[`${selected.id}:landmark`] ? "DISCOVERED" : "UNEXPLORED"}</small></div><div class="locked"><i></i><span>季節の再訪</span><small>UNKNOWN CONDITION</small></div><div class="locked"><i></i><span>夜の探索</span><small>UNKNOWN CONDITION</small></div></div></section>` : `<section class="detail-card glass world-atlas"><div class="atlas-head"><div><p class="eyebrow">world exploration map</p><strong>THE WORLD IS STILL OPEN</strong></div><span><i></i>ATLAS ONLINE</span></div><div class="world-map">${["NORTH AMERICA","SOUTH AMERICA","EUROPE","AFRICA","ASIA","OCEANIA"].map((region) => { const entries = worldAtlas.filter((item) => item.region === region); const complete = entries.filter((item) => archive.countries[item.key]).length; return `<button class="continent ${worldRegion === region ? "is-selected" : ""} ${complete ? "discovered" : ""}" data-world-region="${region}"><span>${region}</span><b>${complete} / ${entries.length}</b></button>`; }).join("")}</div><div class="world-country-list"><p class="eyebrow">${worldRegion}</p>${countriesInRegion.map((country) => `<div class="${archive.countries[country.key] ? "complete" : ""}"><i></i><span>${country.name}</span><small>${archive.countries[country.key] ? "DISCOVERED" : "UNKNOWN"}</small></div>`).join("")}</div></section>`}`; }
   if (page === "log") { const activeView = state.calendarLogView || "today"; const calendarEvents = calendarTimelineEvents(activeView); const calendarCount = state.calendar?.calendars?.length || 0; const [viewLabel,viewTitle] = calendarViewMeta[activeView] || calendarViewMeta.today; const isLinked = Boolean(state.calendar); content = `<section class="page-hero timeline-hero"><p class="eyebrow">google calendar / live timeline</p><h1>PLAYER LOG</h1><p>完了した予定は表示せず、これからの世界だけを見る。</p><div class="log-stat"><b>${calendarEvents.length}</b><span>${viewLabel}<br>${calendarCount} CALENDARS</span></div></section>${isLinked ? `<section class="calendar-view-tabs glass" aria-label="予定の表示範囲">${Object.entries(calendarViewMeta).map(([key,[label,title]]) => `<button class="${activeView === key ? "is-active" : ""}" data-calendar-view="${key}"><span>${label}</span><b>${title}</b></button>`).join("")}</section><section class="detail-card glass full-log calendar-timeline"><div class="timeline-head"><div><p class="eyebrow">world missions</p><strong>${viewTitle}</strong></div><span><i></i>LIVE</span></div>${calendarEvents.length ? calendarEvents.map((event) => { const [label,copy,tone] = calendarLogState(event); return `<article class="calendar-entry ${tone}"><time><b>${esc(calendarTime(event))}</b><span>${esc(calendarLogDate(event))}</span></time><div><p class="eyebrow"><span>${label}</span></p><strong>${esc(event.title)}</strong><p><b class="calendar-source">${esc(event.calendarName || "PRIMARY CALENDAR")}</b>${event.location ? ` · ${esc(event.location)}` : ` · ${copy}`}</p></div></article>`; }).join("") : `<div class="timeline-empty"><i></i><strong>この時間帯に予定はありません</strong><p>次のWORLD MISSIONが現れるまで、自由行動です。</p></div>`}</section>` : `<section class="detail-card glass calendar-link"><p class="eyebrow">calendar not connected</p><strong>予定をTIMELINEに読み込もう</strong><p>手入力は必要ありません。Google Calendarを連携して更新すると、予定がPLAYER LOGになります。</p><button class="primary-action" data-page="system">GO TO CALENDAR SETUP</button></section>`}`; }
   if (page === "sound") { const suggested = soundtrackFor(w); const selected = soundtrackLibrary.find((track) => track.id === state.soundtrackId) || suggested; content = `<section class="page-hero sound-hero ${suggested.tone}"><p class="eyebrow">real world soundtrack</p><h1>SOUND</h1><p>いまの現実に、世界の音楽を重ねる。</p><div class="sound-visual"><i></i><i></i><i></i><i></i><i></i></div></section><section class="sound-player glass ${suggested.tone}"><div class="section-head"><p class="eyebrow">world recommendation</p><span>AUTO</span></div><h2>${esc(suggested.scene)}</h2><p>${esc(suggested.role)} · いまの時間と場所から提案</p><iframe title="${esc(suggested.scene)} Spotify player" src="https://open.spotify.com/embed/track/${suggested.track}?utm_source=generator" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe><button class="primary-action" id="use-recommendation">SET AS NOW PLAYING</button></section>${selected.id !== suggested.id ? `<section class="detail-card glass selected-track"><p class="eyebrow">now playing</p><strong>${esc(selected.scene)}</strong><span>${esc(selected.role)}</span></section>` : ""}<section class="detail-card glass soundtrack-library"><div class="section-head"><p class="eyebrow">my soundtrack</p><span>${soundtrackLibrary.length} SCENES</span></div><p class="status-intro">シーンを選ぶと、いまのBGMとして固定できます。</p><div class="track-list">${soundtrackLibrary.map((track) => `<button class="track-choice ${selected.id === track.id ? "selected" : ""}" data-track="${track.id}"><i class="${track.tone}"></i><div><b>${esc(track.scene)}</b><span>${esc(track.role)}</span></div><em>${selected.id === track.id ? "NOW" : "SELECT"}</em></button>`).join("")}</div><button class="subtle-action" id="auto-soundtrack">RETURN TO AUTO SUGGESTION</button></section>`; }
+  if (page === "sound") content += renderHomeBgmControl();
   if (page === "system") { const calendar = state.calendar; const archive = archiveState(); const feedback = feedbackSettings(); content = `<section class="page-hero"><p class="eyebrow">life system settings</p><h1>SYSTEM</h1><p>現実とLIFE SYSTEMをつなぐ設定。</p><div class="system-status"><i></i><span>WORLD INTERFACE<br><b>ONLINE</b></span></div></section><section class="detail-card glass calendar-link"><div class="section-head"><p class="eyebrow">google calendar</p><span>${calendar ? "LINKED" : "NOT CONNECTED"}</span></div><strong>${calendar ? "WORLD SCHEDULE READY" : "CONNECT YOUR SCHEDULE"}</strong><p>${calendar ? `${calendar.calendars?.length || 1} calendars · ${calendar.events.length} events · ${new Date(calendar.syncedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} synced` : "すべてのGoogleカレンダーを読み取り、PLAYER LOGとWORLD MISSIONとして表示します。"}</p><button class="primary-action" id="connect-calendar">${calendar ? "REFRESH ALL CALENDARS" : "CONNECT GOOGLE CALENDAR"}</button></section><section class="detail-card glass system-feedback"><div class="section-head"><p class="eyebrow">system feedback</p><span>SOUND LANGUAGE</span></div><strong>操作音</strong><p>選択、階層移動、WORLD SYNC、DISCOVERYに小さな音の反応を返します。</p><div><button class="subtle-action" id="toggle-sound">SOUND ${feedback.sound === false ? "OFF" : "ON"}</button></div></section><section class="detail-card glass save-data"><div class="section-head"><p class="eyebrow">save data</p><span>LOCAL BACKUP</span></div><strong>あなたの世界を保存する</strong><p>ATLASの攻略、PLAYER、設定を1つのセーブファイルに書き出します。都道府県 ${Object.keys(archive.prefectures).length}件・国 ${Object.keys(archive.countries).length}件を保存対象にしています。</p><div><button class="subtle-action" id="export-save">SAVE DATAを書き出す</button><button class="subtle-action" id="import-save">SAVE DATAを復元する</button><input id="import-save-file" type="file" accept="application/json,.json" hidden></div></section><section class="detail-card glass system-list"><button id="system-sync"><span>WORLD SYNC</span><small>現在地・天気を更新</small><b>→</b></button><button id="system-status"><span>DAY START STATUS</span><small>今日の状態を選び直す</small><b>→</b></button><div><span>PLAYER LOG</span><small>ALL GOOGLE CALENDARS · 手入力なし</small></div></section>`; }
   if (page === "archive") content += renderAtlasProgressPanel(w);
   if (page === "system") content += `<section class="detail-card glass system-log-link"><div class="section-head"><p class="eyebrow">game engine history</p><span>${systemLog().length} EVENTS</span></div><strong>SYSTEM LOG</strong><p>WORLD SYNC・ATLAS・スキル更新から発生したSYSTEM MESSAGEを確認します。</p><button class="primary-action" data-page="systemlog">SYSTEM LOGを開く</button></section>`;
@@ -850,6 +888,10 @@ function renderPage(page) {
   app.querySelectorAll("[data-track]").forEach((button) => button.addEventListener("click", () => { state.soundtrackId = button.dataset.track; delete state.soundtrack; save(); renderPage("sound"); }));
   app.querySelector("#use-recommendation")?.addEventListener("click", () => { state.soundtrackId = soundtrackFor(w).id; delete state.soundtrack; save(); renderPage("sound"); });
   app.querySelector("#auto-soundtrack")?.addEventListener("click", () => { delete state.soundtrackId; delete state.soundtrack; save(); renderPage("sound"); });
+  app.querySelector("#toggle-home-bgm")?.addEventListener("click", () => {
+    if (homeBgmSettings().enabled) { stopHomeBgm(); renderPage("sound"); return; }
+    homeBgmSettings().enabled = true; save(); startHomeBgm(); renderPage("sound");
+  });
   activateGlassPhysics();
 }
 
@@ -875,4 +917,5 @@ function openView(name) {
 }
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js", { updateViaCache:"none" }));
 window.addEventListener("load", () => { checkLifeReminders(); setInterval(checkLifeReminders, 60_000); });
+document.addEventListener("pointerdown", () => { startHomeBgm(); }, { once:true, passive:true });
 boot();
