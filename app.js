@@ -59,8 +59,15 @@ let fieldEntryAudio;
 const feedbackSettings = () => (state.feedback ||= { sound:true });
 const homeBgmSettings = () => (state.homeBgm ||= { enabled:true });
 function isCampusArea(world = state.world || {}) { return Boolean(world.area?.registered && /CAMPUS|KGU|大学|キャンパス/i.test(String(world.area.name || ""))); }
+function activeMealEvent(now = new Date()) {
+  return (state.calendar?.events || []).find((event) => {
+    const start = new Date(event.start?.dateTime || event.start?.date); const end = new Date(event.end?.dateTime || event.end?.date);
+    return !Number.isNaN(start) && !Number.isNaN(end) && start <= now && now < end && /朝食|昼食|夕食|食べる/.test(String(event.title || ""));
+  });
+}
 const homeBgmScenes = [
   { id:"christmas-world", label:"CHRISTMAS WORLD", source:"./assets/audio/christmas-world.mp3", matches:(now) => now.getMonth() === 11 && [24,25].includes(now.getDate()) },
+  { id:"meal-phase", label:"MEAL PHASE", source:"./assets/audio/meal-phase.mp3", matches:(now) => Boolean(activeMealEvent(now)) },
   { id:"campus-day", label:"CAMPUS / DAY", source:"./assets/audio/campus-day.mp3", matches:(now, world) => isCampusArea(world) && ["MORNING","AFTERNOON"].includes(phase(now.getHours())) },
   { id:"home-deep-night", label:"HOME / DEEP NIGHT", source:"./assets/audio/home-deep-night.mp3", matches:(now) => { const minutes = now.getHours() * 60 + now.getMinutes(); return minutes >= 90 && minutes < 270; } },
   { id:"home-morning", label:"HOME / MORNING", source:"./assets/audio/home-morning.mp3", matches:(now) => now.getHours() >= 5 && now.getHours() < 11 },
@@ -126,7 +133,7 @@ function playMorningFieldEntry(previous, next, now = new Date()) {
 function renderHomeBgmControl() {
   const enabled = homeBgmSettings().enabled;
   const scene = selectedHomeBgmScene();
-  const title = scene.id === "christmas-world" ? "Cherry Berry Merry" : scene.id === "campus-day" ? "Koi is Love" : scene.id === "home-morning" ? "Midsummer cat" : scene.id === "home-deep-night" ? "Suger story" : "step by step - night arranged";
+  const title = scene.id === "christmas-world" ? "Cherry Berry Merry" : scene.id === "meal-phase" ? "Guruguru Usagi" : scene.id === "campus-day" ? "Koi is Love" : scene.id === "home-morning" ? "Midsummer cat" : scene.id === "home-deep-night" ? "Suger story" : "step by step - night arranged";
   return `<section class="detail-card glass home-bgm-control"><div class="section-head"><p class="eyebrow">local world audio</p><span>${enabled ? scene.label : "OFF"}</span></div><strong>HOME AMBIENCE</strong><p>${scene.label}：${title}。最初の操作後から小さな音量でループします。</p><button class="subtle-action" id="toggle-home-bgm">${enabled ? "HOME BGMを停止" : "HOME BGMを開始"}</button></section>`;
 }
 const notificationSettings = () => (state.notifications ||= { morning:true, evening:true, calendar:true, sent:{} });
@@ -340,8 +347,8 @@ function calendarLogDate(event) { const value = event.start?.dateTime || event.s
 const calendarViewMeta = { today:["TODAY","今日"], sixHours:["NEXT 6H","6時間以内"], day:["NEXT 24H","24時間以内"], upcoming:["UPCOMING","これからの予定"] };
 function calendarTimelineEvents(view = "today") { const now = new Date(); const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999); const horizon = new Date(now); if (view === "sixHours") horizon.setHours(horizon.getHours() + 6); if (view === "day") horizon.setHours(horizon.getHours() + 24); return (state.calendar?.events || []).filter((event) => { const start = new Date(event.start?.dateTime || event.start?.date); const end = new Date(event.end?.dateTime || event.end?.date); if (Number.isNaN(start) || Number.isNaN(end) || end < now) return false; if (view === "today") return start <= endOfToday; if (view === "sixHours" || view === "day") return start <= horizon; return true; }); }
 async function loadCalendarEvents(accessToken) {
-  const now = new Date(); const until = new Date(now); until.setDate(until.getDate() + 14);
-  const params = new URLSearchParams({ timeMin:now.toISOString(), timeMax:until.toISOString(), singleEvents:"true", orderBy:"startTime", maxResults:"100" });
+  const now = new Date(); const since = new Date(now); since.setHours(since.getHours() - 12); const until = new Date(now); until.setDate(until.getDate() + 14);
+  const params = new URLSearchParams({ timeMin:since.toISOString(), timeMax:until.toISOString(), singleEvents:"true", orderBy:"startTime", maxResults:"100" });
   const listResponse = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader&showHidden=false&maxResults=250", { headers:{ Authorization:`Bearer ${accessToken}` } });
   if (!listResponse.ok) throw new Error("calendar list request failed");
   const calendarList = (await listResponse.json()).items || [];
