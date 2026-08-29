@@ -63,7 +63,7 @@ const celebrationState = () => (state.celebrations ||= { played:{}, pending:null
 function celebrationKey(kind, now = new Date()) { return `${dateKey(now)}:${kind}`; }
 function queueCelebration(kind, label, detail, now = new Date()) {
   const celebrations = celebrationState(); const key = celebrationKey(kind, now);
-  if (celebrations.played[key] || celebrations.pending?.key === key) return false;
+  if (celebrations.played[key] || celebrations.pending) return false;
   celebrations.pending = { key, label, detail, queuedAt:now.toISOString() };
   recordSystemMessage({ level:3, title:"CELEBRATION EVENT", detail:`${label} — ${detail}`, target:"player" });
   save(); return true;
