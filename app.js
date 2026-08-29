@@ -671,6 +671,13 @@ async function registerSearchedArea({ query, ...options }) {
   const match = results?.[0]; if (!match) throw new Error("place not found");
   return persistArea({ ...options, latitude:Number(match.lat), longitude:Number(match.lon), sourceLabel:match.display_name || cleanQuery });
 }
+async function searchAreaPlaces(query) {
+  const cleanQuery = String(query || "").trim(); if (!cleanQuery) throw new Error("place query required");
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=ja&q=${encodeURIComponent(cleanQuery)}`;
+  const results = await fetch(url).then((response) => response.ok ? response.json() : Promise.reject());
+  return (results || []).map((item) => ({ label:item.display_name || cleanQuery, latitude:Number(item.lat), longitude:Number(item.lon) })).filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
+}
+const areaSearchState = () => (state.areaSearch ||= { results:[] });
 function areaDistanceStatus(area) {
   const latitude = Number(state.world?.latitude); const longitude = Number(state.world?.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return { label:"SYNCして現在地と照合", tone:"waiting" };
@@ -679,8 +686,9 @@ function areaDistanceStatus(area) {
   return { label:`現在地から ${metres}m / 半径 ${area.radius}m ${inside ? "・範囲内" : "・範囲外"}`, tone:inside ? "inside" : "outside" };
 }
 function renderAreaSettings() {
-  const areas = areaState();
-  return `<section class="detail-card glass area-settings"><div class="section-head"><p class="eyebrow">world transition</p><span>${areas.length} AREAS</span></div><strong>日常エリアを登録する</strong><p>現在地、または自分で入力した場所名からHOME BASEや大学などのAREAを登録できます。</p><div class="area-actions"><div class="area-home-setup"><p>HOME BASE</p><input id="home-area-search" maxlength="80" placeholder="住所・駅名・施設名で登録する場合"><button class="subtle-action" id="set-home-area">現在地をHOME BASEにする</button><button class="subtle-action" id="search-home-area">入力した場所をHOME BASEにする</button></div><div class="area-custom-setup"><p>CUSTOM AREA</p><input id="custom-area-name" maxlength="28" placeholder="例：KGU / CAMPUS"><input id="custom-area-search" maxlength="80" placeholder="場所名・住所（今いる場所以外でも可）"><select id="custom-area-radius"><option value="120">半径 120m</option><option value="200" selected>半径 200m</option><option value="350">半径 350m</option><option value="500">半径 500m</option></select><button class="subtle-action" id="set-custom-area">現在地で登録</button><button class="subtle-action" id="search-custom-area">入力した場所で登録</button></div></div><div class="registered-areas">${areas.length ? areas.map((area) => { const status = areaDistanceStatus(area); return `<article class="${status.tone}"><i>${area.type === "home" ? "⌂" : "◌"}</i><span><b>${esc(area.name)}</b><small>${esc(area.sourceLabel || "以前の登録データ")}</small><em>${esc(status.label)}</em></span><button data-remove-area="${area.id}" aria-label="${esc(area.name)}を削除">×</button></article>`; }).join("") : `<p>まだ登録されたエリアはありません。</p>`}</div><button class="subtle-action area-sync-check" id="area-sync-check">SYNCして現在地との距離を確認</button></section>`;
+  const areas = areaState(); const search = areaSearchState(); const customDraft = search.target === "custom" ? search : {};
+  const candidates = search.results?.length ? `<section class="area-search-results"><p>検索候補 — 選んだ地点にAREA名を付けて登録</p>${search.results.map((item,index) => `<button data-area-result="${index}"><i>⌖</i><span>${esc(item.label)}</span><b>選択</b></button>`).join("")}<button class="area-search-cancel" id="clear-area-search">候補を閉じる</button></section>` : "";
+  return `<section class="detail-card glass area-settings"><div class="section-head"><p class="eyebrow">world transition</p><span>${areas.length} AREAS</span></div><strong>日常エリアを登録する</strong><p>現在地、または自分で入力した場所名からHOME BASEや大学などのAREAを登録できます。</p><div class="area-actions"><div class="area-home-setup"><p>HOME BASE</p><input id="home-area-search" maxlength="80" value="${esc(search.target === "home" ? search.query || "" : "")}" placeholder="住所・駅名・施設名で検索"><button class="subtle-action" id="set-home-area">現在地をHOME BASEにする</button><button class="subtle-action" id="search-home-area">候補を検索する</button></div><div class="area-custom-setup"><p>CUSTOM AREA</p><input id="custom-area-name" maxlength="28" value="${esc(customDraft.name || "")}" placeholder="例：KGU / CAMPUS"><input id="custom-area-search" maxlength="80" value="${esc(customDraft.query || "")}" placeholder="場所名・住所（今いる場所以外でも可）"><select id="custom-area-radius"><option value="120" ${String(customDraft.radius) === "120" ? "selected" : ""}>半径 120m</option><option value="200" ${!customDraft.radius || String(customDraft.radius) === "200" ? "selected" : ""}>半径 200m</option><option value="350" ${String(customDraft.radius) === "350" ? "selected" : ""}>半径 350m</option><option value="500" ${String(customDraft.radius) === "500" ? "selected" : ""}>半径 500m</option></select><button class="subtle-action" id="set-custom-area">現在地で登録</button><button class="subtle-action" id="search-custom-area">候補を検索する</button></div></div>${candidates}<div class="registered-areas">${areas.length ? areas.map((area) => { const status = areaDistanceStatus(area); return `<article class="${status.tone}"><i>${area.type === "home" ? "⌂" : "◌"}</i><span><b>${esc(area.name)}</b><small>${esc(area.sourceLabel || "以前の登録データ")}</small><em>${esc(status.label)}</em></span><button data-remove-area="${area.id}" aria-label="${esc(area.name)}を削除">×</button></article>`; }).join("") : `<p>まだ登録されたエリアはありません。</p>`}</div><button class="subtle-action area-sync-check" id="area-sync-check">SYNCして現在地との距離を確認</button></section>`;
 }
 async function sync() {
   systemFeedback("scan");
@@ -872,7 +880,7 @@ function renderPage(page, transitionDirection = "forward") {
   app.querySelector("#search-home-area")?.addEventListener("click", async () => {
     const query = app.querySelector("#home-area-search")?.value;
     if (!String(query || "").trim()) { alert("HOME BASEの住所・駅名・施設名を入力してください。"); return; }
-    try { await registerSearchedArea({ query, name:"HOME BASE", type:"home", radius:180 }); renderPage("system"); } catch { alert("場所を見つけられませんでした。住所や駅名をもう少し詳しく入力してください。"); }
+    try { const results = await searchAreaPlaces(query); if (!results.length) throw new Error("place not found"); Object.assign(areaSearchState(), { target:"home", query, name:"HOME BASE", type:"home", radius:180, results }); save(); renderPage("system"); } catch { alert("場所を見つけられませんでした。住所や駅名をもう少し詳しく入力してください。"); }
   });
   app.querySelector("#set-custom-area")?.addEventListener("click", async () => {
     const name = app.querySelector("#custom-area-name")?.value; const radius = app.querySelector("#custom-area-radius")?.value;
@@ -883,8 +891,13 @@ function renderPage(page, transitionDirection = "forward") {
     const name = app.querySelector("#custom-area-name")?.value; const query = app.querySelector("#custom-area-search")?.value; const radius = app.querySelector("#custom-area-radius")?.value;
     if (!String(name || "").trim()) { alert("AREA名を入力してください。例：KGU / CAMPUS"); return; }
     if (!String(query || "").trim()) { alert("登録する場所名・住所を入力してください。"); return; }
-    try { await registerSearchedArea({ query, name, type:"custom", radius }); renderPage("system"); } catch { alert("場所を見つけられませんでした。住所や駅名をもう少し詳しく入力してください。"); }
+    try { const results = await searchAreaPlaces(query); if (!results.length) throw new Error("place not found"); Object.assign(areaSearchState(), { target:"custom", query, name, type:"custom", radius, results }); save(); renderPage("system"); } catch { alert("場所を見つけられませんでした。住所や駅名をもう少し詳しく入力してください。"); }
   });
+  app.querySelectorAll("[data-area-result]").forEach((button) => button.addEventListener("click", () => {
+    const search = areaSearchState(); const item = search.results?.[Number(button.dataset.areaResult)]; if (!item) return;
+    persistArea({ name:search.name, type:search.type, radius:search.radius, latitude:item.latitude, longitude:item.longitude, sourceLabel:item.label }); delete state.areaSearch; save(); renderPage("system");
+  }));
+  app.querySelector("#clear-area-search")?.addEventListener("click", () => { delete state.areaSearch; save(); renderPage("system"); });
   app.querySelectorAll("[data-remove-area]").forEach((button) => button.addEventListener("click", () => { state.areas = areaState().filter((area) => area.id !== button.dataset.removeArea); save(); renderPage("system"); }));
   if (page === "system") {
     const updatePlayDataClock = () => { const now = new Date(); const playtime = app.querySelector("#playtime-counter"); const day = app.querySelector("#play-day-counter"); if (playtime) playtime.textContent = formatPlayTime(now); if (day) day.textContent = gameDay(now); };
