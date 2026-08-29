@@ -305,3 +305,18 @@ body::after { opacity:.36; }
 .world-core .world-moon { top:var(--moon-y); right:auto; left:var(--moon-x); width:34px; height:34px; overflow:hidden; background:#000 url("./assets/world-core-moon-texture.png") center/cover !important; box-shadow:0 0 13px 4px rgba(229,235,255,.48),0 0 25px 7px rgba(166,192,255,.18); mix-blend-mode:screen; opacity:var(--night-alpha) !important; transform:translate(-50%,-50%); transition:top 1.2s linear,left 1.2s linear,opacity 1.2s linear; }
 .world-core .world-moon::after { position:absolute; inset:-1px; border-radius:50%; background:rgba(9,20,51,.94); content:""; transform:translateX(var(--moon-shadow)); transition:transform 1.2s linear; }
 .world-core .world-clouds { opacity:var(--cloud-opacity) !important; transition:opacity 1.4s ease,filter 1.4s ease; }
+
+/* The clock hand belongs to the HUD, not the sky. Keep the sphere free of diagram lines. */
+.world-core .core-time-hand { display:none; }
+
+/* Celestial bodies sit inside the atmosphere instead of looking pasted on top. */
+.world-core .world-moon { width:30px; height:30px; filter:brightness(var(--moon-brightness)) contrast(.9) saturate(.76); box-shadow:0 0 8px 2px rgba(230,238,255,.36),0 0 20px 5px rgba(154,188,255,.14); }
+.world-core .world-moon::before { position:absolute; inset:-9px; z-index:-1; border-radius:50%; background:radial-gradient(circle,rgba(228,239,255,.22) 0 10%,rgba(183,207,255,.08) 25%,transparent 67%); content:""; filter:blur(2px); }
+.world-core .world-moon::after { background:rgba(11,23,52,.86); }
+.world-core .world-sun { width:23px; height:23px; background:radial-gradient(circle,rgba(255,255,252,1) 0 13%,rgba(255,250,216,.96) 24%,rgba(255,225,162,.7) 47%,rgba(255,211,148,.12) 70%,transparent 72%); box-shadow:0 0 12px 4px rgba(255,247,203,.72),0 0 34px 10px rgba(255,201,155,.26); }
+
+/* Cloud cover changes occupied sky, not only opacity. */
+.world-core[data-cloud="clear"] .world-clouds { background:radial-gradient(ellipse at 24% 39%,rgba(248,253,255,.74) 0 4%,transparent 12%),radial-gradient(ellipse at 70% 50%,rgba(236,249,255,.52) 0 3%,transparent 10%); }
+.world-core[data-cloud="scattered"] .world-clouds { background:radial-gradient(ellipse at 16% 47%,rgba(245,251,255,.78) 0 6%,rgba(211,230,244,.25) 11%,transparent 18%),radial-gradient(ellipse at 61% 30%,rgba(248,252,255,.75) 0 8%,rgba(212,232,247,.22) 13%,transparent 22%),radial-gradient(ellipse at 82% 54%,rgba(235,247,255,.57) 0 4%,transparent 13%); }
+.world-core[data-cloud="broken"] .world-clouds { background:radial-gradient(ellipse at 13% 48%,rgba(242,250,255,.85) 0 10%,rgba(203,223,241,.37) 17%,transparent 28%),radial-gradient(ellipse at 42% 27%,rgba(251,253,255,.88) 0 13%,rgba(207,227,245,.35) 21%,transparent 34%),radial-gradient(ellipse at 77% 49%,rgba(235,247,255,.75) 0 11%,rgba(191,218,237,.3) 18%,transparent 29%); }
+.world-core[data-cloud="overcast"] .world-clouds { inset:-6%; background:linear-gradient(165deg,rgba(224,236,247,.58),rgba(178,204,225,.35) 42%,rgba(125,157,192,.28)),radial-gradient(ellipse at 17% 42%,rgba(249,252,255,.55) 0 14%,transparent 31%),radial-gradient(ellipse at 74% 57%,rgba(232,240,250,.48) 0 18%,transparent 35%); filter:blur(2.5px) saturate(.72); }
