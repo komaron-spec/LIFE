@@ -23,6 +23,12 @@ body::after { background-image:linear-gradient(rgba(125,171,211,.055) 1px,transp
 .card::before,.detail-card::before { opacity:.62; }
 /* The PLAYER header must stay stable; remove the two decorative objects that can distort on mobile Safari. */
 .player-portrait .player-level-ring,.player-portrait .player-level-ring .level,.build-sigil { display:none !important; }
+.player-summary { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:20px; }
+.player-summary > div { min-width:0; }
+.player-summary strong { display:block; overflow:hidden; color:#5e779b; font-size:18px; text-overflow:ellipsis; white-space:nowrap; }
+.player-summary small { display:block; margin-top:4px; color:#879ab1; font:8px/1.45 ui-monospace,monospace; letter-spacing:.06em; }
+.player-summary > b { display:grid; flex:0 0 50px; place-items:center; width:50px; height:50px; border:1px solid rgba(255,255,255,.78); border-radius:50%; background:rgba(255,255,255,.28); box-shadow:inset 0 1px rgba(255,255,255,.78); color:#617da4; font:500 18px/.9 ui-monospace,monospace; }
+.player-summary > b small { margin:0 0 2px; font-size:7px; }
 
 /* Denser, smoked liquid glass: clear background, darkened refraction, bright rim. */
 body { background:radial-gradient(66rem 48rem at -8% -6%,rgba(159,212,241,.82),transparent 56%),radial-gradient(58rem 43rem at 108% 86%,rgba(210,166,237,.66),transparent 60%),radial-gradient(45rem 35rem at 50% 45%,rgba(242,249,255,.84),transparent 68%),#cbd3df; }
