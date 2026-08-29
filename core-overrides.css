@@ -199,6 +199,10 @@ body::after { opacity:.36; }
 .registered-areas span { display:grid; gap:2px; min-width:0; }
 .registered-areas b { overflow:hidden; color:#67809f; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
 .registered-areas small { color:#91a2b6; font:8px ui-monospace,monospace; letter-spacing:.04em; }
+.registered-areas em { display:block; margin-top:2px; color:#849cb4; font:8px/1.45 ui-monospace,monospace; font-style:normal; letter-spacing:.02em; }
+.registered-areas article.inside em { color:#5f9c82; }.registered-areas article.inside > i { box-shadow:0 0 0 4px rgba(167,231,199,.17); }
+.registered-areas article.outside em { color:#9b86a9; }.registered-areas article.waiting em { color:#8ea0b4; }
+.area-sync-check { width:100%; margin-top:10px; }
 .registered-areas button { margin-left:auto; width:25px; height:25px; border:0; border-radius:50%; color:#8197b0; background:rgba(255,255,255,.28); font-size:16px; }
 @keyframes world-transition-refract { from { opacity:0; transform:rotate(-24deg) translateX(-45%) scale(.8); } 30% { opacity:1; } to { opacity:0; transform:rotate(-24deg) translateX(38%) scale(1.15); } }
 @keyframes world-transition-out { 0%,58% { opacity:1; } 100% { opacity:0; visibility:hidden; } }
