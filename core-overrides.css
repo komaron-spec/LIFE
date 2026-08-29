@@ -284,3 +284,8 @@ body::after { opacity:.36; }
 .world-glass-edge::before { top:0; left:0; width:100%; height:100%; border:0; border-radius:inherit; background:linear-gradient(90deg,rgba(255,194,224,.48),rgba(209,249,255,.31) 3%,transparent 9%,transparent 89%,rgba(194,232,255,.36) 96%,rgba(248,194,255,.38)); content:""; filter:blur(1.1px); transform:none; mask-image:radial-gradient(circle,transparent 67%,#000 69%,#000 76%,transparent 79%); -webkit-mask-image:radial-gradient(circle,transparent 67%,#000 69%,#000 76%,transparent 79%); }
 .world-glass-edge::after { top:5%; left:2%; width:96%; height:90%; border-radius:50%; background:linear-gradient(106deg,rgba(255,255,255,.38),transparent 14%,transparent 78%,rgba(255,255,255,.26)); box-shadow:16px 0 24px rgba(255,175,218,.24),-13px 0 23px rgba(152,225,255,.32),inset 12px 0 16px -11px rgba(202,247,255,.75),inset -15px 0 18px -13px rgba(232,190,255,.66); filter:blur(.3px); transform:none; }
 .world-globe::before { background:radial-gradient(ellipse at 18% 10%,rgba(255,255,255,.86) 0 2%,rgba(255,255,255,.24) 7%,transparent 24%),radial-gradient(ellipse at 86% 91%,rgba(171,226,255,.18),transparent 26%); }
+
+/* Generated optical shell: it replaces the synthetic CSS rim and stays above every live WORLD layer. */
+.world-core .world-globe::before,.world-core .world-globe::after,.world-core .world-glass-edge { display:none; }
+.world-glass-shell { position:absolute; inset:-1.8%; z-index:15; width:103.6%; height:103.6%; max-width:none; pointer-events:none; user-select:none; object-fit:fill; filter:brightness(1.015) saturate(.94); }
+.world-core .core-center { z-index:16; }
