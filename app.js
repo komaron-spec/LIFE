@@ -196,7 +196,7 @@ function liquidArtworkFor(scene, world = state.world || {}, now = new Date()) {
   const seed = Array.from(`${dateKey(now)}:${scene.id}:${Math.floor(now.getHours() / 6)}`).reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 997, 0);
   const rare = scene.id === "christmas-world" || seed < 11;
   const modifiers = [weather.includes("RAIN") || weather.includes("THUNDER") ? "world-rain" : "", humidity >= 78 ? "world-haze" : "", wind >= 8 ? "world-wind" : "", rare ? "has-rare" : ""].filter(Boolean).join(" ");
-  if (scene.id === "home-night") return `<div class="liquid-artwork ${profile.tone} ${modifiers} is-rendered-night" id="local-liquid-artwork" aria-hidden="true"><i class="liquid-reflection"></i></div>`;
+  if (scene.id === "home-night") return `<div class="liquid-artwork ${profile.tone} ${modifiers} is-rendered-night" id="local-liquid-artwork" aria-hidden="true"><i class="night-liquid-inertia"></i><i class="night-liquid-caustic"></i><i class="liquid-reflection"></i></div>`;
   return `<div class="liquid-artwork ${profile.tone} ${modifiers}" id="local-liquid-artwork" style="--liquid-level:${profile.level}%"><i class="liquid-backlight"></i><i class="liquid-caustic"></i><div class="liquid-body"><i class="liquid-surface"></i><i class="liquid-depth"></i><i class="liquid-sediment"></i>${Array.from({ length:profile.particles }, (_, index) => `<i class="liquid-particle particle-${index + 1}"></i>`).join("")}${Array.from({ length:profile.motifs }, (_, index) => `<i class="liquid-motif motif-${index + 1}"></i>`).join("")}</div><i class="liquid-reflection"></i></div>`;
 }
 function renderSoundNowPlaying() {
@@ -246,17 +246,23 @@ function bindLocalBgmPlayer() {
     audio.currentTime = Number(progress.value);
     update();
   });
-  const resetTilt = () => artwork?.style.setProperty("--tilt-x", "0px") || artwork?.style.setProperty("--tilt-y", "0px");
+  const setArtworkTilt = (x, y) => {
+    if (!artwork) return;
+    artwork.style.setProperty("--tilt-x", `${x.toFixed(2)}px`);
+    artwork.style.setProperty("--tilt-y", `${y.toFixed(2)}px`);
+    artwork.style.setProperty("--fluid-x", `${(x * .72).toFixed(2)}px`);
+    artwork.style.setProperty("--fluid-y", `${(y * .38).toFixed(2)}px`);
+    artwork.style.setProperty("--fluid-angle", `${(x * .28).toFixed(2)}deg`);
+  };
+  const resetTilt = () => setArtworkTilt(0, 0);
   const moveTilt = (event) => {
     if (!artwork) return;
     const bounds = artwork.getBoundingClientRect();
-    artwork.style.setProperty("--tilt-x", `${Math.max(-7, Math.min(7, ((event.clientX - bounds.left) / bounds.width - .5) * 14)).toFixed(2)}px`);
-    artwork.style.setProperty("--tilt-y", `${Math.max(-7, Math.min(7, ((event.clientY - bounds.top) / bounds.height - .5) * 14)).toFixed(2)}px`);
+    setArtworkTilt(Math.max(-7, Math.min(7, ((event.clientX - bounds.left) / bounds.width - .5) * 14)), Math.max(-7, Math.min(7, ((event.clientY - bounds.top) / bounds.height - .5) * 14)));
   };
   const deviceTilt = (event) => {
     if (!artwork || !Number.isFinite(event.gamma) || !Number.isFinite(event.beta)) return;
-    artwork.style.setProperty("--tilt-x", `${Math.max(-5, Math.min(5, event.gamma / 8)).toFixed(2)}px`);
-    artwork.style.setProperty("--tilt-y", `${Math.max(-5, Math.min(5, (event.beta - 45) / 14)).toFixed(2)}px`);
+    setArtworkTilt(Math.max(-5, Math.min(5, event.gamma / 8)), Math.max(-5, Math.min(5, (event.beta - 45) / 14)));
   };
   artwork?.addEventListener("pointermove", moveTilt);
   artwork?.addEventListener("pointerleave", resetTilt);
