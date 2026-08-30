@@ -427,3 +427,13 @@ body::after { opacity:.36; }
 .world-core[data-cloud="clear"] .world-clouds,.world-core[data-cloud="scattered"] .world-clouds { display:none; }
 .world-core[data-cloud="broken"] .cloud-near { display:none; }
 .world-core[data-cloud="broken"] .cloud-far,.world-core[data-cloud="broken"] .cloud-mid { opacity:.32; }
+
+/* Lightweight weather distinction: static cloud count only, with no GPU-heavy masks, filters or motion. */
+.world-core .world-clouds b::before,.world-core .world-clouds b::after { display:none !important; }
+.world-core[data-cloud="clear"] .world-clouds { display:none; }
+.world-core[data-cloud="scattered"] .world-clouds { display:block; opacity:.18 !important; }
+.world-core[data-cloud="scattered"] .cloud-far { display:block; top:19%; left:12%; width:29%; height:15%; background:radial-gradient(circle at 15% 67%,rgba(129,163,187,.24) 0 11%,transparent 13%),radial-gradient(circle at 34% 42%,rgba(240,248,252,.58) 0 18%,transparent 21%),radial-gradient(circle at 56% 57%,rgba(214,230,240,.43) 0 17%,transparent 20%),radial-gradient(circle at 78% 35%,rgba(250,253,255,.64) 0 14%,transparent 17%); }
+.world-core[data-cloud="scattered"] .cloud-mid { display:block; top:48%; right:12%; width:21%; height:12%; background:radial-gradient(circle at 18% 68%,rgba(126,157,181,.2) 0 10%,transparent 12%),radial-gradient(circle at 40% 43%,rgba(235,246,252,.54) 0 18%,transparent 21%),radial-gradient(circle at 66% 58%,rgba(208,227,238,.37) 0 16%,transparent 19%),radial-gradient(circle at 84% 36%,rgba(251,254,255,.57) 0 12%,transparent 15%); }
+.world-core[data-cloud="scattered"] .cloud-near { display:none; }
+.world-core[data-cloud="broken"] .world-clouds { display:block; opacity:.34 !important; }
+.world-core[data-cloud="overcast"] .world-clouds { display:block; opacity:.56 !important; }
