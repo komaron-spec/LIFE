@@ -1,12 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 256" preserveAspectRatio="none">
-  <filter id="cloudNoise" x="-12%" y="-18%" width="124%" height="136%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.009 0.028" numOctaves="4" seed="37" result="noise"/>
-    <feColorMatrix in="noise" type="saturate" values="0" result="mono"/>
-    <feComponentTransfer in="mono">
-      <feFuncR type="table" tableValues="0 0.04 0.22 0.7 1"/>
-      <feFuncG type="table" tableValues="0 0.04 0.22 0.7 1"/>
-      <feFuncB type="table" tableValues="0 0.04 0.22 0.7 1"/>
-    </feComponentTransfer>
-  </filter>
-  <rect width="512" height="256" filter="url(#cloudNoise)"/>
+  <path fill="#fff" opacity=".08" d="M-14 172C29 128 58 166 91 130C124 93 158 139 190 108C231 70 264 128 300 97C344 60 382 117 415 91C454 60 483 108 530 72V244H-14Z"/>
+  <path fill="#fff" opacity=".22" d="M-12 186C20 153 45 181 74 147C103 112 133 160 164 126C193 94 220 146 252 112C286 76 315 133 350 101C388 68 416 124 449 94C480 67 503 102 526 81V224H-12Z"/>
+  <path fill="#fff" opacity=".55" d="M-8 201C18 174 42 198 65 169C88 139 112 181 138 151C165 121 188 173 214 142C241 110 266 166 293 134C321 103 348 158 375 128C404 98 430 147 457 119C482 93 502 123 520 107V216H-8Z"/>
+  <path fill="#fff" opacity=".88" d="M-3 211C17 190 38 208 57 184C76 161 97 193 118 169C139 145 160 187 182 162C204 137 225 180 248 154C271 128 293 175 316 149C340 123 362 168 386 143C410 117 433 159 456 136C479 113 497 144 515 126V208H-3Z"/>
+  <path fill="#fff" opacity=".34" d="M0 73C31 49 52 76 78 55C105 33 130 68 156 45C183 23 210 61 238 38C268 14 297 55 327 31C357 8 387 48 418 25C452 0 477 35 512 13V96C477 111 448 82 416 106C383 130 353 88 325 114C296 141 266 101 237 126C208 151 179 110 151 135C120 161 91 118 63 143C38 166 18 137 0 152Z"/>
+  <path fill="#fff" opacity=".14" d="M-8 45C35 17 63 46 99 20C135-6 166 33 200 8C236-18 269 22 304-3C341-30 376 13 412-12C448-37 480 0 520-24V50C483 71 452 39 418 65C384 90 352 54 320 79C287 105 254 67 222 93C189 120 156 81 124 108C88 138 58 95 25 121C10 132 0 131-8 137Z"/>
 </svg>
