@@ -56,7 +56,6 @@ let homeBgm;
 let homeBgmFade;
 let homeBgmSceneId;
 let localBgmUiCleanup;
-let pixiNightCleanup;
 let fieldEntryAudio;
 let celebrationAudio;
 const feedbackSettings = () => (state.feedback ||= { sound:true });
@@ -200,85 +199,6 @@ function liquidArtworkFor(scene, world = state.world || {}, now = new Date()) {
   if (scene.id === "home-night") return `<div class="liquid-artwork ${profile.tone} ${modifiers} is-specimen-night" id="local-liquid-artwork" aria-hidden="true"><i class="night-liquid-transmission"></i><i class="night-water-refraction"></i><i class="night-liquid-inertia"></i><i class="night-meniscus left"></i><i class="night-meniscus right"></i><i class="night-liquid-caustic"></i><i class="liquid-reflection"></i></div>`;
   return `<div class="liquid-artwork ${profile.tone} ${modifiers}" id="local-liquid-artwork" style="--liquid-level:${profile.level}%"><i class="liquid-backlight"></i><i class="liquid-caustic"></i><div class="liquid-body"><i class="liquid-surface"></i><i class="liquid-depth"></i><i class="liquid-sediment"></i>${Array.from({ length:profile.particles }, (_, index) => `<i class="liquid-particle particle-${index + 1}"></i>`).join("")}${Array.from({ length:profile.motifs }, (_, index) => `<i class="liquid-motif motif-${index + 1}"></i>`).join("")}</div><i class="liquid-reflection"></i></div>`;
 }
-async function mountPixiNightSpecimen(artwork) {
-  if (!artwork?.classList.contains("is-specimen-night")) return;
-  pixiNightCleanup?.();
-  try {
-    const PIXI = await import("./assets/pixi.min.mjs");
-    if (!document.body.contains(artwork)) return;
-    const bounds = artwork.getBoundingClientRect();
-    const width = Math.max(1, Math.round(bounds.width));
-    const height = Math.max(1, Math.round(bounds.height));
-    const pixi = new PIXI.Application();
-    await pixi.init({ width, height, backgroundAlpha:0, antialias:true, autoDensity:true, resolution:Math.min(window.devicePixelRatio || 1, 2) });
-    const canvas = pixi.canvas;
-    canvas.className = "pixi-water-canvas";
-    artwork.append(canvas);
-    const texture = await PIXI.Assets.load("./assets/audio-specimen-night-water-base.png");
-    if (!document.body.contains(artwork)) { pixi.destroy(true); return; }
-    const water = new PIXI.Sprite(texture);
-    water.anchor.set(.5);
-    water.x = width / 2;
-    water.y = height / 2;
-    water.width = width * 1.045;
-    water.height = height * 1.045;
-    pixi.stage.addChild(water);
-    const surface = new PIXI.Graphics();
-    pixi.stage.addChild(surface);
-    const moon = new PIXI.Container();
-    const moonOuter = new PIXI.Graphics().circle(0,0,16).fill({ color:0xf7f6ee, alpha:.78 });
-    const moonInner = new PIXI.Graphics().circle(-7,-3,14).fill({ color:0x183968, alpha:.72 });
-    const moonGlow = new PIXI.Graphics().circle(0,0,21).fill({ color:0xd7edff, alpha:.08 });
-    moon.addChild(moonGlow, moonOuter, moonInner);
-    moon.x = width * .52;
-    moon.y = height * .71;
-    pixi.stage.addChild(moon);
-    const particles = [];
-    for (let index = 0; index < 26; index += 1) {
-      const depth = .56 + Math.random() * .38;
-      const radius = .55 + Math.random() * (depth > .78 ? 1.25 : .7);
-      const color = index % 4 === 0 ? 0xffedbd : 0xe5f2ff;
-      const particle = new PIXI.Graphics().circle(0,0,radius).fill({ color, alpha:.2 + Math.random() * .5 });
-      particle.baseX = width * (.07 + Math.random() * .86);
-      particle.baseY = height * depth;
-      particle.depth = depth;
-      particle.phase = Math.random() * Math.PI * 2;
-      particles.push(particle);
-      pixi.stage.addChild(particle);
-    }
-    let targetX = 0; let targetY = 0; let waterX = 0; let waterY = 0; let time = 0;
-    artwork._updatePixiTilt = (x, y) => { targetX = x; targetY = y; };
-    const drawSurface = () => {
-      const level = height * .447 + waterY * .15;
-      surface.clear().moveTo(-8, level);
-      for (let x = -8; x <= width + 8; x += 9) surface.lineTo(x, level + Math.sin(x * .052 + time * .8) * 1.15 + Math.sin(x * .018 - time * .4) * .8 + waterX * .045);
-      surface.stroke({ color:0xeaf7ff, width:1.05, alpha:.48 });
-    };
-    pixi.ticker.add((ticker) => {
-      const delta = Math.min(ticker.deltaTime, 2.2);
-      time += .013 * delta;
-      waterX += ((targetX * .95) - waterX) * .035 * delta;
-      waterY += ((targetY * .62) - waterY) * .03 * delta;
-      water.x = width / 2 + waterX * 1.25;
-      water.y = height / 2 + waterY * .72;
-      moon.x += ((width * .52 + waterX * .48 + Math.sin(time * .6) * 1.3) - moon.x) * .018 * delta;
-      moon.y += ((height * .71 + waterY * .36 + Math.sin(time * .45) * 1.1) - moon.y) * .016 * delta;
-      particles.forEach((particle) => {
-        const drift = Math.sin(time * (.42 + particle.depth * .3) + particle.phase);
-        particle.x += ((particle.baseX + waterX * (.15 + particle.depth * .34) + drift * 1.6) - particle.x) * .012 * delta;
-        particle.y += ((particle.baseY + waterY * (.1 + particle.depth * .25) + Math.cos(time * .37 + particle.phase) * 1.2) - particle.y) * .012 * delta;
-      });
-      drawSurface();
-    });
-    artwork.classList.add("is-pixi-water");
-    pixiNightCleanup = () => {
-      artwork._updatePixiTilt = null;
-      canvas.remove();
-      pixi.destroy(true);
-      pixiNightCleanup = null;
-    };
-  } catch (error) { artwork.classList.remove("is-pixi-water"); }
-}
 function renderSoundNowPlaying() {
   const scene = selectedHomeBgmScene();
   const audio = homeBgm;
@@ -338,9 +258,7 @@ function bindLocalBgmPlayer() {
     artwork.style.setProperty("--fluid-x", `${(x * .72).toFixed(2)}px`);
     artwork.style.setProperty("--fluid-y", `${(y * .38).toFixed(2)}px`);
     artwork.style.setProperty("--fluid-angle", `${(x * .28).toFixed(2)}deg`);
-    artwork._updatePixiTilt?.(x, y);
   };
-  mountPixiNightSpecimen(artwork);
   const resetTilt = () => setArtworkTilt(0, 0);
   const moveTilt = (event) => {
     if (!artwork) return;
@@ -380,7 +298,6 @@ function bindLocalBgmPlayer() {
   motionToggle.addEventListener("click", enableMotion);
   attach();
   localBgmUiCleanup = () => {
-    pixiNightCleanup?.();
     if (!audio) return;
     ["loadedmetadata", "durationchange", "timeupdate", "play", "pause", "ended"].forEach((event) => audio.removeEventListener(event, update));
     artwork?.removeEventListener("pointermove", moveTilt);
