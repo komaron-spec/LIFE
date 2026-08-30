@@ -420,3 +420,10 @@ body::after { opacity:.36; }
 /* Preserve the turbulence mask; only its internal lighting gains a restrained sun-facing lift and underside shade. */
 .world-core[data-sky="day"] .cloud-far::before,.world-core[data-sky="day"] .cloud-mid::before,.world-core[data-sky="day"] .cloud-near::before { position:absolute; inset:0; background:linear-gradient(157deg,rgba(255,255,255,.31) 0%,rgba(237,247,252,.1) 35%,transparent 56%,rgba(65,101,131,.16) 100%); content:""; mix-blend-mode:screen; opacity:.68; }
 .world-core[data-sky="day"] .cloud-far::after,.world-core[data-sky="day"] .cloud-mid::after,.world-core[data-sky="day"] .cloud-near::after { position:absolute; top:-8%; right:9%; width:38%; height:34%; border-radius:50%; background:radial-gradient(ellipse,rgba(255,255,255,.42),rgba(240,250,255,.12) 42%,transparent 72%); content:""; filter:blur(3px); opacity:.5; }
+
+/* iPhone stability fallback: avoid masked, filtered, continuously transformed cloud layers. */
+.world-core .world-clouds b { -webkit-mask-image:none; mask-image:none; filter:none !important; animation:none !important; }
+.world-core .cloud-far,.world-core .cloud-mid,.world-core .cloud-near { transform:none !important; }
+.world-core[data-cloud="clear"] .world-clouds,.world-core[data-cloud="scattered"] .world-clouds { display:none; }
+.world-core[data-cloud="broken"] .cloud-near { display:none; }
+.world-core[data-cloud="broken"] .cloud-far,.world-core[data-cloud="broken"] .cloud-mid { opacity:.32; }
