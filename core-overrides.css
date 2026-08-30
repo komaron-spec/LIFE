@@ -370,3 +370,15 @@ body::after { opacity:.36; }
 .world-core .world-sky::before { background:radial-gradient(ellipse at 50% 94%,rgba(214,225,237,.54) 0 8%,rgba(181,202,222,.22) 27%,transparent 56%),radial-gradient(circle at var(--moon-x) var(--moon-y),rgba(198,216,247,.26) 0 2%,rgba(169,194,233,.1) 12%,transparent 29%),radial-gradient(circle at var(--sun-x) var(--sun-y),rgba(255,238,210,.18) 0 4%,transparent 25%); mix-blend-mode:screen; }
 .world-core .world-stars { opacity:var(--star-visibility) !important; filter:contrast(var(--clarity)) saturate(var(--clarity)); }
 .world-core .world-horizon { opacity:var(--clarity); filter:contrast(var(--clarity)) saturate(var(--clarity)); transition:opacity 2.8s linear,filter 2.8s linear; }
+
+/* Clear daytime: depth comes from a real light field, not decorative clouds. */
+.world-core[data-sky="day"] .world-sky { background:radial-gradient(ellipse at var(--sun-x) var(--sun-y),rgba(255,255,255,.98) 0 3%,rgba(255,248,224,.86) 8%,rgba(212,240,255,.42) 21%,transparent 48%),radial-gradient(ellipse at 108% 72%,rgba(18,105,179,.42),transparent 66%),linear-gradient(155deg,#196eae 0%,var(--sky-top) 38%,var(--sky-bottom) 100%) !important; }
+.world-core[data-sky="day"] .world-sun { width:46px; height:46px; background:radial-gradient(circle,rgba(255,255,253,.98) 0 6%,rgba(255,251,226,.92) 12%,rgba(255,231,172,.48) 27%,rgba(255,218,165,.14) 48%,transparent 70%); box-shadow:0 0 23px 8px rgba(255,249,213,.52),0 0 56px 21px rgba(255,211,157,.2); }
+.world-core[data-sky="day"] .world-caustic { inset:0; background:radial-gradient(ellipse at var(--sun-x) var(--sun-y),rgba(255,255,255,.42) 0 2%,rgba(238,250,255,.17) 12%,transparent 30%),linear-gradient(108deg,transparent 39%,rgba(255,255,255,.1) 49%,transparent 59%); opacity:.42; transform:none; animation:none; }
+
+/* Keep the fixed horizon as a low, irregular silhouette rather than a bowl-shaped base. */
+.world-core .world-horizon { right:-4%; bottom:7%; left:-4%; height:19%; border-radius:0; background:linear-gradient(180deg,rgba(52,104,145,.2),rgba(20,63,105,.58)); box-shadow:none; clip-path:polygon(0 76%,8% 68%,16% 72%,24% 55%,31% 66%,39% 48%,47% 61%,56% 42%,66% 62%,74% 50%,83% 67%,91% 58%,100% 72%,100% 100%,0 100%); transform:none; }
+.world-core[data-sky="night"] .world-horizon { background:linear-gradient(180deg,rgba(42,77,122,.24),rgba(6,21,59,.76)); }
+
+/* Outside markers belonged to the former HUD. WORLD CORE now remains a quiet object. */
+.world-core .core-orbit,.world-core .core-event-ring { display:none; }
