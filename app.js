@@ -108,6 +108,15 @@ const homeBgmScenes = [
   { id:"home-morning", label:"HOME / MORNING", source:"./assets/audio/home-morning.mp3", matches:(now) => now.getHours() >= 5 && now.getHours() < 11 },
   { id:"home-night", label:"HOME / NIGHT", source:"./assets/audio/home-night.mp3", matches:() => true }
 ];
+const liquidArtworkProfiles = {
+  "christmas-world": { tone:"liquid-christmas", level:72, particles:5, motifs:4 },
+  "meal-phase": { tone:"liquid-meal", level:66, particles:6, motifs:5 },
+  "rain-field": { tone:"liquid-rain", level:61, particles:5, motifs:3 },
+  "campus-day": { tone:"liquid-campus", level:54, particles:4, motifs:4 },
+  "home-deep-night": { tone:"liquid-deep-night", level:48, particles:6, motifs:5 },
+  "home-morning": { tone:"liquid-morning", level:70, particles:5, motifs:3 },
+  "home-night": { tone:"liquid-home-night", level:58, particles:4, motifs:4 }
+};
 function selectedHomeBgmScene(now = new Date(), world = state.world || {}) { return homeBgmScenes.find((scene) => scene.matches(now, world)) || homeBgmScenes.at(-1); }
 function getHomeBgm(scene = selectedHomeBgmScene()) {
   if (!homeBgm) {
@@ -179,11 +188,21 @@ function formatAudioTime(value) {
   const minutes = Math.floor(value / 60);
   return `${minutes}:${String(Math.floor(value % 60)).padStart(2, "0")}`;
 }
+function liquidArtworkFor(scene, world = state.world || {}, now = new Date()) {
+  const profile = liquidArtworkProfiles[scene.id] || liquidArtworkProfiles["home-night"];
+  const weather = String(world.weather || "").toUpperCase();
+  const humidity = Number(world.humidity || 0);
+  const wind = Number(world.windSpeed || world.wind || 0);
+  const seed = Array.from(`${dateKey(now)}:${scene.id}:${Math.floor(now.getHours() / 6)}`).reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 997, 0);
+  const rare = scene.id === "christmas-world" || seed < 11;
+  const modifiers = [weather.includes("RAIN") || weather.includes("THUNDER") ? "world-rain" : "", humidity >= 78 ? "world-haze" : "", wind >= 8 ? "world-wind" : "", rare ? "has-rare" : ""].filter(Boolean).join(" ");
+  return `<div class="liquid-artwork ${profile.tone} ${modifiers}" id="local-liquid-artwork" style="--liquid-level:${profile.level}%"><i class="liquid-backlight"></i><i class="liquid-caustic"></i><div class="liquid-body"><i class="liquid-surface"></i><i class="liquid-depth"></i><i class="liquid-sediment"></i>${Array.from({ length:profile.particles }, (_, index) => `<i class="liquid-particle particle-${index + 1}"></i>`).join("")}${Array.from({ length:profile.motifs }, (_, index) => `<i class="liquid-motif motif-${index + 1}"></i>`).join("")}</div><i class="liquid-reflection"></i></div>`;
+}
 function renderSoundNowPlaying() {
   const scene = selectedHomeBgmScene();
   const audio = homeBgm;
   const isPlaying = Boolean(homeBgmSettings().enabled && audio && !audio.paused);
-  return `<section class="now-playing-screen glass night local-now-playing"><div class="now-playing-head"><p class="eyebrow">local world audio</p><span><i></i>${isPlaying ? "LOOP PLAYING" : homeBgmSettings().enabled ? "LOOP READY" : "PAUSED"}</span></div><div class="now-playing-orb" aria-hidden="true"><b></b><i></i><i></i><i></i><em></em></div><div class="now-playing-copy"><small>NOW PLAYING / HOME AMBIENCE</small><h2 id="local-bgm-title">${esc(localBgmTitle(scene))}</h2><p id="local-bgm-scene">${esc(scene.label)} · LOCAL LOOP</p></div><div class="now-playing-wave ${isPlaying ? "is-playing" : ""}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="local-playback"><button class="local-play-toggle" id="local-bgm-toggle" aria-label="再生または停止"><span>${isPlaying ? "Ⅱ" : "▶"}</span></button><div><input id="local-bgm-progress" type="range" min="0" max="1" step="0.01" value="${Number.isFinite(audio?.currentTime) ? audio.currentTime : 0}" aria-label="再生位置"><div class="local-playback-time"><span id="local-bgm-current">${formatAudioTime(audio?.currentTime)}</span><span id="local-bgm-duration">${formatAudioTime(audio?.duration)}</span></div></div><button class="local-loop-state" type="button" aria-label="ループ再生中">↻</button></div><p class="now-playing-note">LIFE SYSTEM内で流れている環境BGMです。バーを動かすと再生位置を変えられます。</p></section>`;
+  return `<section class="now-playing-screen glass night local-now-playing"><div class="now-playing-head"><p class="eyebrow">local world audio</p><span><i></i>${isPlaying ? "LOOP PLAYING" : homeBgmSettings().enabled ? "LOOP READY" : "PAUSED"}</span></div>${liquidArtworkFor(scene)}<div class="now-playing-copy"><small>NOW PLAYING / HOME AMBIENCE</small><h2 id="local-bgm-title">${esc(localBgmTitle(scene))}</h2><p id="local-bgm-scene">${esc(scene.label)} · LOCAL LOOP</p></div><div class="now-playing-wave ${isPlaying ? "is-playing" : ""}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="local-playback"><button class="local-play-toggle" id="local-bgm-toggle" aria-label="再生または停止"><span>${isPlaying ? "Ⅱ" : "▶"}</span></button><div><input id="local-bgm-progress" type="range" min="0" max="1" step="0.01" value="${Number.isFinite(audio?.currentTime) ? audio.currentTime : 0}" aria-label="再生位置"><div class="local-playback-time"><span id="local-bgm-current">${formatAudioTime(audio?.currentTime)}</span><span id="local-bgm-duration">${formatAudioTime(audio?.duration)}</span></div></div><button class="local-loop-state" type="button" aria-label="ループ再生中">↻</button></div><p class="now-playing-note">LIFE SYSTEM内で流れている環境BGMです。バーを動かすと再生位置を変えられます。</p></section>`;
 }
 function bindLocalBgmPlayer() {
   localBgmUiCleanup?.();
@@ -194,6 +213,7 @@ function bindLocalBgmPlayer() {
   const title = app.querySelector("#local-bgm-title");
   const sceneLabel = app.querySelector("#local-bgm-scene");
   const wave = app.querySelector(".local-now-playing .now-playing-wave");
+  const artwork = app.querySelector("#local-liquid-artwork");
   if (!toggle || !progress || !current || !duration) return;
   let audio = homeBgm;
   const update = () => {
@@ -225,10 +245,28 @@ function bindLocalBgmPlayer() {
     audio.currentTime = Number(progress.value);
     update();
   });
+  const resetTilt = () => artwork?.style.setProperty("--tilt-x", "0px") || artwork?.style.setProperty("--tilt-y", "0px");
+  const moveTilt = (event) => {
+    if (!artwork) return;
+    const bounds = artwork.getBoundingClientRect();
+    artwork.style.setProperty("--tilt-x", `${Math.max(-7, Math.min(7, ((event.clientX - bounds.left) / bounds.width - .5) * 14)).toFixed(2)}px`);
+    artwork.style.setProperty("--tilt-y", `${Math.max(-7, Math.min(7, ((event.clientY - bounds.top) / bounds.height - .5) * 14)).toFixed(2)}px`);
+  };
+  const deviceTilt = (event) => {
+    if (!artwork || !Number.isFinite(event.gamma) || !Number.isFinite(event.beta)) return;
+    artwork.style.setProperty("--tilt-x", `${Math.max(-5, Math.min(5, event.gamma / 8)).toFixed(2)}px`);
+    artwork.style.setProperty("--tilt-y", `${Math.max(-5, Math.min(5, (event.beta - 45) / 14)).toFixed(2)}px`);
+  };
+  artwork?.addEventListener("pointermove", moveTilt);
+  artwork?.addEventListener("pointerleave", resetTilt);
+  window.addEventListener("deviceorientation", deviceTilt, { passive:true });
   attach();
   localBgmUiCleanup = () => {
     if (!audio) return;
     ["loadedmetadata", "durationchange", "timeupdate", "play", "pause", "ended"].forEach((event) => audio.removeEventListener(event, update));
+    artwork?.removeEventListener("pointermove", moveTilt);
+    artwork?.removeEventListener("pointerleave", resetTilt);
+    window.removeEventListener("deviceorientation", deviceTilt);
   };
 }
 const notificationSettings = () => (state.notifications ||= { morning:true, evening:true, calendar:true, sent:{} });
