@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 120" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="horizon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#467da5" stop-opacity=".48"/>
+      <stop offset="1" stop-color="#143e6a" stop-opacity=".82"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#horizon)" d="M0 83 C28 80 42 74 64 77 C88 80 105 57 130 62 C153 67 170 73 193 61 C216 49 239 54 260 64 C283 75 302 64 324 57 C346 50 364 65 383 68 C404 71 424 60 445 64 C471 70 488 77 512 73 L512 120 L0 120Z"/>
+</svg>
