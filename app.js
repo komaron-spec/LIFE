@@ -215,6 +215,11 @@ function bindLocalBgmPlayer() {
   const sceneLabel = app.querySelector("#local-bgm-scene");
   const wave = app.querySelector(".local-now-playing .now-playing-wave");
   const artwork = app.querySelector("#local-liquid-artwork");
+  const motionHead = app.querySelector(".local-now-playing .now-playing-head");
+  const motionToggle = document.createElement("button");
+  motionToggle.className = "motion-toggle";
+  motionToggle.type = "button";
+  motionHead?.append(motionToggle);
   if (!toggle || !progress || !current || !duration) return;
   let audio = homeBgm;
   const update = () => {
@@ -264,16 +269,41 @@ function bindLocalBgmPlayer() {
     if (!artwork || !Number.isFinite(event.gamma) || !Number.isFinite(event.beta)) return;
     setArtworkTilt(Math.max(-5, Math.min(5, event.gamma / 8)), Math.max(-5, Math.min(5, (event.beta - 45) / 14)));
   };
+  let motionActive = false;
+  const setMotionUi = (active) => {
+    motionToggle.textContent = active ? "TILT ON" : "TILT";
+    motionToggle.classList.toggle("is-active", active);
+  };
+  const enableMotion = async () => {
+    if (!("DeviceOrientationEvent" in window)) { motionToggle.textContent = "NO TILT"; return; }
+    try {
+      if (typeof DeviceOrientationEvent.requestPermission === "function") {
+        const permission = await DeviceOrientationEvent.requestPermission();
+        if (permission !== "granted") { motionToggle.textContent = "TILT OFF"; return; }
+      }
+      if (!motionActive) window.addEventListener("deviceorientation", deviceTilt, { passive:true });
+      motionActive = true;
+      state.soundMotionEnabled = true;
+      save();
+      setMotionUi(true);
+    } catch { motionToggle.textContent = "TILT OFF"; }
+  };
   artwork?.addEventListener("pointermove", moveTilt);
   artwork?.addEventListener("pointerleave", resetTilt);
-  window.addEventListener("deviceorientation", deviceTilt, { passive:true });
+  if (state.soundMotionEnabled) {
+    window.addEventListener("deviceorientation", deviceTilt, { passive:true });
+    motionActive = true;
+    setMotionUi(true);
+  } else setMotionUi(false);
+  motionToggle.addEventListener("click", enableMotion);
   attach();
   localBgmUiCleanup = () => {
     if (!audio) return;
     ["loadedmetadata", "durationchange", "timeupdate", "play", "pause", "ended"].forEach((event) => audio.removeEventListener(event, update));
     artwork?.removeEventListener("pointermove", moveTilt);
     artwork?.removeEventListener("pointerleave", resetTilt);
-    window.removeEventListener("deviceorientation", deviceTilt);
+    motionToggle.removeEventListener("click", enableMotion);
+    if (motionActive) window.removeEventListener("deviceorientation", deviceTilt);
   };
 }
 const notificationSettings = () => (state.notifications ||= { morning:true, evening:true, calendar:true, sent:{} });
