@@ -196,6 +196,7 @@ function liquidArtworkFor(scene, world = state.world || {}, now = new Date()) {
   const seed = Array.from(`${dateKey(now)}:${scene.id}:${Math.floor(now.getHours() / 6)}`).reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 997, 0);
   const rare = scene.id === "christmas-world" || seed < 11;
   const modifiers = [weather.includes("RAIN") || weather.includes("THUNDER") ? "world-rain" : "", humidity >= 78 ? "world-haze" : "", wind >= 8 ? "world-wind" : "", rare ? "has-rare" : ""].filter(Boolean).join(" ");
+  if (scene.id === "home-night") return `<div class="liquid-artwork ${profile.tone} ${modifiers} is-rendered-night" id="local-liquid-artwork" aria-hidden="true"><i class="liquid-reflection"></i></div>`;
   return `<div class="liquid-artwork ${profile.tone} ${modifiers}" id="local-liquid-artwork" style="--liquid-level:${profile.level}%"><i class="liquid-backlight"></i><i class="liquid-caustic"></i><div class="liquid-body"><i class="liquid-surface"></i><i class="liquid-depth"></i><i class="liquid-sediment"></i>${Array.from({ length:profile.particles }, (_, index) => `<i class="liquid-particle particle-${index + 1}"></i>`).join("")}${Array.from({ length:profile.motifs }, (_, index) => `<i class="liquid-motif motif-${index + 1}"></i>`).join("")}</div><i class="liquid-reflection"></i></div>`;
 }
 function renderSoundNowPlaying() {
