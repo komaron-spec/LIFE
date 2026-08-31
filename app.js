@@ -368,7 +368,7 @@ app.addEventListener("click", (event) => {
   systemFeedback(control.classList.contains("primary-action") ? "confirm" : "select");
 });
 function exportSaveData() {
-  const payload = { app:"LIFE SYSTEM", version:1, exportedAt:new Date().toISOString(), state };
+  const payload = { app:"LIFE SYSTEM", version:2, exportedAt:new Date().toISOString(), contents:["PLAYER / BUILD","SKILLS / TITLES","ARCHIVE / ATLAS","WORLD LOG / SYSTEM LOG","REGISTERED AREAS","CALENDAR CACHE","BGM / NOTIFICATION / NAVIGATOR SETTINGS"], state };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
   const url = URL.createObjectURL(blob); const link = document.createElement("a");
   link.href = url; link.download = `life-system-save-${dateKey()}.json`; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -1099,6 +1099,10 @@ function renderPlayData() {
   const data = playDataState(); const session = dailySessionState(); const summary = sessionSummary(session.day); const history = state.sessionHistory || []; const sessionStatus = session.status === "complete" ? "COMPLETE" : "ACTIVE";
   return `<section class="detail-card glass play-data-card"><div class="section-head"><p class="eyebrow">play data / continuous save</p><span><i></i>${sessionStatus}</span></div><strong>CURRENT PLAYTHROUGH</strong><div class="play-data-main"><div><small>DAY</small><b id="play-day-counter">${gameDay()}</b></div><div><small>PLAY TIME</small><b id="playtime-counter">${formatPlayTime()}</b></div></div><div class="play-data-grid"><span>WORLD INSTANCE<b>${esc(data.worldInstance)}</b></span><span>CURRENT SEASON<b>${esc(season(new Date().getMonth()))}</b></span><span>AUTOSAVE<b>${esc(data.saveType)}</b></span><span>RESPAWN<b>DISABLED</b></span><span>LOAD / RESET<b>UNAVAILABLE</b></span><span>END CONDITION<b>UNKNOWN</b></span></div><div class="daily-session"><div><small>TODAY'S SESSION</small><strong>${sessionStatus}</strong><span>DAY ${gameDay()} / ${session.day}</span></div><div><b>${summary.events}</b><span>EVENTS</span></div><div><b>${summary.areas}</b><span>AREAS</span></div><div><b>${summary.discoveries}</b><span>NEW</span></div></div><div class="play-init"><label>PLAYER INITIALIZED<input id="player-initialized" type="date" value="${esc(data.initializedAt)}"></label><button class="subtle-action" id="save-play-data">開始日を更新</button></div>${history[0] ? `<p class="session-history">PREVIOUS SESSION · ${esc(history[0].day)} / ${history[0].events} EVENTS · ${history[0].areas} AREAS</p>` : ""}</section>`;
 }
+function renderBackupDetails() {
+  const archive = archiveState(); const skills = skillState();
+  return `<section class="detail-card glass save-data-details"><div class="section-head"><p class="eyebrow">backup contents</p><span>FULL SAVE</span></div><strong>このセーブに含まれるもの</strong><div class="play-data-grid"><span>PLAYER / BUILD<b>LEVEL・長期成長・STATUS</b></span><span>SKILLS / TITLES<b>${Object.keys(skills.records || {}).length} RECORDS / ${Object.keys(titleState().unlocked || {}).length} TITLES</b></span><span>ARCHIVE / ATLAS<b>${Object.keys(archive.prefectures).length} PREFECTURES / ${Object.keys(archive.countries).length} COUNTRIES</b></span><span>WORLD HISTORY<b>PLAYER LOG・SYSTEM LOG・SESSION</b></span><span>REGISTERED AREAS<b>${areaState().length} AREAS / GPS COORDINATES</b></span><span>LOCAL SETTINGS<b>BGM・通知・NAVIGATOR・UI設定</b></span><span>CALENDAR CACHE<b>${state.calendar?.events?.length || 0} EVENTS / ALL CALENDARS</b></span></div><p class="notification-note">Googleのログイン認可、iPhoneの通知許可、現在再生中の音声そのものは端末側の権限・状態のため復元対象外です。復元後は必要に応じてGoogle Calendarを再接続してください。</p></section>`;
+}
 function renderSystemLog() {
   const entries = systemLog(); const today = entries.filter((entry) => entry.date === dateKey());
   return `<section class="page-hero system-log-hero"><p class="eyebrow">game engine / event history</p><h1>SYSTEM LOG</h1><p>現実世界で検出された変化を、PLAYERへのSYSTEM MESSAGEとして記録します。</p><div class="log-stat"><b>${today.length}</b><span>TODAY<br>MESSAGES</span></div></section><section class="detail-card glass system-log-card"><div class="section-head"><p class="eyebrow">today's system messages</p><span>${entries.length} SAVED</span></div>${entries.length ? entries.map((entry) => { const meta = systemMessageMeta[entry.level] || systemMessageMeta[1]; return `<button class="system-log-entry ${meta.className}" data-system-target="${entry.target}"><time>${esc(entry.date === dateKey() ? entry.time : entry.date)}</time><i></i><div><small>${meta.label}</small><strong>${esc(entry.title)}</strong><p>${esc(entry.detail)}</p></div><b>›</b></button>`; }).join("") : `<div class="timeline-empty"><i></i><strong>SYSTEM MESSAGEはまだありません</strong><p>WORLD SYNCやスキル記録によって、現実の変化がここに残ります。</p></div>`}</section>`;
@@ -1127,6 +1131,7 @@ function renderPage(page, transitionDirection = "forward") {
   if (page === "system") content += renderTitleCollection();
   if (page === "system") content += renderNotificationSettings();
   if (page === "system") content += renderNavigatorSettings();
+  if (page === "system") content += renderBackupDetails();
   if (page === "system") content += renderPlayData();
   if (page === "system") content += renderAreaSettings();
   if (page === "__player") page = "player";
