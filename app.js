@@ -849,6 +849,7 @@ function filterVisibleSkillResults(query) {
 }
 function boot() {
   clearInterval(homeClock);
+  if (homeBgmSettings().manualSceneId) { homeBgmSettings().manualSceneId = null; save(); }
   scheduleLoginCelebration();
   app.innerHTML = `<section class="boot"><div class="boot-world"><div class="orb"><span>SYNC</span></div><h1>LIFE SYSTEM</h1><p class="sub">real world interface</p><div class="progress"><i></i></div><p id="boot-copy">世界との接続を準備しています…</p></div></section>`;
   const copies = ["世界との接続を準備しています…", "プレイヤーを確認しています…", "前回の世界を復元しています…"];
@@ -894,7 +895,7 @@ async function weather(lat, lon) {
 }
 function renderLocalBgmSelector() {
   const settings = homeBgmSettings(); const activeId = selectedHomeBgmScene().id;
-  return `<section class="detail-card glass soundtrack-library local-bgm-library"><div class="section-head"><p class="eyebrow">BGM library</p><span>${settings.manualSceneId ? "FIXED" : "AUTO SYNC"}</span></div><strong>流すBGMを選ぶ</strong><p class="status-intro">AUTO SYNCなら時間・場所・天気に合わせます。曲を選ぶと、その曲を固定してループします。</p><div class="track-list"><button class="track-choice ${settings.manualSceneId ? "" : "selected"}" data-local-bgm-scene="auto"><i class="home"></i><div><b>AUTO SYNC</b><span>WORLD STATEに合わせる</span></div><em>${settings.manualSceneId ? "AUTO" : "ACTIVE"}</em></button>${homeBgmScenes.map((scene) => `<button class="track-choice ${settings.manualSceneId === scene.id ? "selected" : ""}" data-local-bgm-scene="${scene.id}"><i class="${liquidArtworkProfiles[scene.id]?.tone || "night"}"></i><div><b>${esc(localBgmTitle(scene))}</b><span>${esc(scene.label)}</span></div><em>${activeId === scene.id ? "NOW" : "SELECT"}</em></button>`).join("")}</div></section>`;
+  return `<section class="detail-card glass soundtrack-library local-bgm-library"><div class="section-head"><p class="eyebrow">BGM library</p><span>${settings.manualSceneId ? "FIXED" : "AUTO SYNC"}</span></div><strong>流すBGMを選ぶ</strong><p class="status-intro">AUTO SYNCなら時間・場所・天気に合わせます。曲を選ぶと、この起動中だけ固定再生します。</p><div class="track-list"><button class="track-choice ${settings.manualSceneId ? "" : "selected"}" data-local-bgm-scene="auto"><i class="home"></i><div><b>AUTO SYNC</b><span>WORLD STATEに合わせる</span></div><em>${settings.manualSceneId ? "AUTO" : "ACTIVE"}</em></button>${homeBgmScenes.map((scene) => `<button class="track-choice ${settings.manualSceneId === scene.id ? "selected" : ""}" data-local-bgm-scene="${scene.id}"><i class="${liquidArtworkProfiles[scene.id]?.tone || "night"}"></i><div><b>${esc(localBgmTitle(scene))}</b><span>${esc(scene.label)}</span></div><em>${activeId === scene.id ? "NOW" : "SELECT"}</em></button>`).join("")}</div></section>`;
 }
 function getPosition() { return new Promise((resolve, reject) => navigator.geolocation ? navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:20000, maximumAge:0 }) : reject()); }
 function worldArea(world = {}) {
