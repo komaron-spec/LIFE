@@ -547,12 +547,12 @@ const icon = (name) => {
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.haze}</svg>`;
 };
-const pageNav = (active) => `<nav class="page-nav glass" aria-label="LIFE SYSTEM navigation">${[["world","WORLD"],["archive","ATLAS"],["player","PLAYER"],["skills","SKILL"],["navigator","NAVI"],["log","LOG"],["sound","SOUND"],["system","SYSTEM"]].map(([name,label]) => `<button class="${active === name ? "is-active" : ""}" data-page="${name}" aria-current="${active === name ? "page" : "false"}">${label}</button>`).join("")}</nav>`;
+const pageNav = (active) => { const tab = String(active).startsWith("system-") || active === "systemlog" ? "system" : active; return `<nav class="page-nav glass" aria-label="LIFE SYSTEM navigation">${[["world","WORLD"],["archive","ATLAS"],["player","PLAYER"],["skills","SKILL"],["navigator","NAVI"],["log","LOG"],["sound","SOUND"],["system","SYSTEM"]].map(([name,label]) => `<button class="${tab === name ? "is-active" : ""}" data-page="${name}" aria-current="${tab === name ? "page" : "false"}">${label}</button>`).join("")}</nav>`; };
 const swipePages = ["world","archive","player","skills","navigator","log","sound","system"];
 function bindPageSwipe(page) {
   const shell = app.querySelector(".shell");
   if (!shell) return;
-  const currentPage = page === "systemlog" ? "system" : page;
+  const currentPage = page === "systemlog" || String(page).startsWith("system-") ? "system" : page;
   const currentIndex = swipePages.indexOf(currentPage);
   if (currentIndex < 0) return;
   let start;
@@ -1060,7 +1060,7 @@ function renderHome() {
 function navigate(page, requestedDirection) {
   const screen = app.querySelector(".shell");
   if (!screen || screen.dataset.page === page) return;
-  const current = screen.dataset.page === "home" ? "world" : screen.dataset.page === "systemlog" ? "system" : screen.dataset.page;
+  const current = screen.dataset.page === "home" ? "world" : screen.dataset.page === "systemlog" || String(screen.dataset.page).startsWith("system-") ? "system" : screen.dataset.page;
   const target = page === "systemlog" ? "system" : page;
   const direction = requestedDirection || (swipePages.indexOf(target) < swipePages.indexOf(current) ? "back" : "forward");
   systemFeedback("enter", page);
@@ -1103,6 +1103,47 @@ function renderBackupDetails() {
   const archive = archiveState(); const skills = skillState();
   return `<section class="detail-card glass save-data-details"><div class="section-head"><p class="eyebrow">backup contents</p><span>FULL SAVE</span></div><strong>このセーブに含まれるもの</strong><div class="play-data-grid"><span>PLAYER / BUILD<b>LEVEL・長期成長・STATUS</b></span><span>SKILLS / TITLES<b>${Object.keys(skills.records || {}).length} RECORDS / ${Object.keys(titleState().unlocked || {}).length} TITLES</b></span><span>ARCHIVE / ATLAS<b>${Object.keys(archive.prefectures).length} PREFECTURES / ${Object.keys(archive.countries).length} COUNTRIES</b></span><span>WORLD HISTORY<b>PLAYER LOG・SYSTEM LOG・SESSION</b></span><span>REGISTERED AREAS<b>${areaState().length} AREAS / GPS COORDINATES</b></span><span>LOCAL SETTINGS<b>BGM・通知・NAVIGATOR・UI設定</b></span><span>CALENDAR CACHE<b>${state.calendar?.events?.length || 0} EVENTS / ALL CALENDARS</b></span></div><p class="notification-note">Googleのログイン認可、iPhoneの通知許可、現在再生中の音声そのものは端末側の権限・状態のため復元対象外です。復元後は必要に応じてGoogle Calendarを再接続してください。</p></section>`;
 }
+
+function renderCalendarLinkCard() {
+  const calendar = state.calendar;
+  return `<section class="detail-card glass calendar-link"><div class="section-head"><p class="eyebrow">google calendar</p><span>${calendar ? "LINKED" : "NOT CONNECTED"}</span></div><strong>${calendar ? "WORLD SCHEDULE READY" : "予定をWORLDへ接続"}</strong><p>${calendar ? `${calendar.calendars?.length || 1} calendars ・ ${calendar.events.length} events ・ ${new Date(calendar.syncedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} synced` : "Google Calendarの予定を、PLAYER LOGとWORLD MISSIONとして読み込みます。"}</p><button class="primary-action" id="connect-calendar">${calendar ? "カレンダーを更新" : "Google Calendarを接続"}</button></section>`;
+}
+
+function renderSystemFeedbackSettings() {
+  const feedback = feedbackSettings();
+  return `<section class="detail-card glass system-feedback"><div class="section-head"><p class="eyebrow">system feedback</p><span>SOUND LANGUAGE</span></div><strong>操作フィードバック</strong><p>選択・決定・WORLD SYNC・DISCOVERYに小さな音の反応をつけます。</p><div><button class="subtle-action" id="toggle-sound">SOUND ${feedback.sound === false ? "OFF" : "ON"}</button></div></section>`;
+}
+
+function renderSaveDataCard() {
+  const archive = archiveState();
+  return `<section class="detail-card glass save-data"><div class="section-head"><p class="eyebrow">save data</p><span>LOCAL BACKUP</span></div><strong>あなたのWORLDを保存する</strong><p>ATLASの探索、PLAYER、設定を1つのセーブファイルに書き出せます。現在は日本 ${Object.keys(archive.prefectures).length}都道府県・世界 ${Object.keys(archive.countries).length}か国を保存中です。</p><div><button class="subtle-action" id="export-save">セーブを書き出す</button><button class="subtle-action" id="import-save">セーブを復元する</button><input id="import-save-file" type="file" accept="application/json,.json" hidden></div></section>`;
+}
+
+function renderPlayerSettings() {
+  const profile = playerProfile();
+  return `<section class="detail-card glass player-identity"><div class="section-head"><p class="eyebrow">player identity</p><span>LOCAL PROFILE</span></div><strong>PLAYER ID</strong><p>この端末で表示するPLAYER名です。現実の個人情報として外部には送信されません。</p><input id="player-name" maxlength="24" value="${esc(profile.name)}" aria-label="プレイヤー名"><button class="subtle-action" id="save-player-name">名前を保存</button></section>${renderPlayData()}<section class="detail-card glass system-list"><button id="system-status"><span>DAY START STATUS</span><small>今日の世界へ入る状態を選びます</small><b>›</b></button></section>`;
+}
+
+function renderSystemBack() {
+  return `<button class="system-section-back" data-page="system"><span>‹</span> SYSTEMへ戻る</button>`;
+}
+
+function renderSystemHub() {
+  const calendar = state.calendar;
+  return `<section class="page-hero system-hub-hero"><p class="eyebrow">life system settings</p><h1>SYSTEM</h1><p>この端末と現実世界の接続設定。</p><div class="system-status"><i></i><span>WORLD INTERFACE<br><b>ONLINE</b></span></div></section><section class="system-hub" aria-label="SYSTEM設定"><button class="system-hub-card world" data-page="system-world"><i>◌</i><span><small>WORLD LINK</small><b>世界との接続</b><em>${calendar ? `${calendar.calendars?.length || 1} CALENDARS LINKED` : "LOCATION / CALENDAR / AREA"}</em></span><strong>›</strong></button><button class="system-hub-card player" data-page="system-player"><i>◇</i><span><small>PLAYER SETTINGS</small><b>PLAYER設定</b><em>名前・開始日・DAY START STATUS</em></span><strong>›</strong></button><button class="system-hub-card experience" data-page="system-experience"><i>✦</i><span><small>EXPERIENCE</small><b>体験とナビゲーション</b><em>通知・介入レベル・SYSTEM SOUND</em></span><strong>›</strong></button><button class="system-hub-card data" data-page="system-data"><i>▣</i><span><small>DATA VAULT</small><b>セーブと履歴</b><em>バックアップ・SYSTEM LOG</em></span><strong>›</strong></button></section>`;
+}
+
+function renderSystemWorld() {
+  return `<section class="page-hero system-section-hero"><p class="eyebrow">system / world link</p><h1>WORLD LINK</h1><p>現在地、予定、登録AREAをWORLDへ同期します。</p>${renderSystemBack()}</section>${renderCalendarLinkCard()}<section class="detail-card glass system-list"><button id="system-sync"><span>WORLD SYNC</span><small>現在地・天気・時間を更新</small><b>›</b></button></section>${renderAreaSettings()}`;
+}
+
+function renderSystemExperience() {
+  return `<section class="page-hero system-section-hero"><p class="eyebrow">system / experience</p><h1>EXPERIENCE</h1><p>PLAYERへ届くSYSTEMの反応を調整します。</p>${renderSystemBack()}</section>${renderNotificationSettings()}${renderNavigatorSettings()}${renderSystemFeedbackSettings()}`;
+}
+
+function renderSystemData() {
+  return `<section class="page-hero system-section-hero"><p class="eyebrow">system / data vault</p><h1>DATA VAULT</h1><p>この端末に保存されたPLAYERのセーブデータ。</p>${renderSystemBack()}</section>${renderSaveDataCard()}${renderBackupDetails()}<section class="detail-card glass system-log-link"><div class="section-head"><p class="eyebrow">game engine history</p><span>${systemLog().length} EVENTS</span></div><strong>SYSTEM LOG</strong><p>WORLD SYNC・ATLAS・スキル更新から発生したSYSTEM MESSAGEを確認します。</p><button class="primary-action" data-page="systemlog">SYSTEM LOGを開く</button></section>`;
+}
 function renderSystemLog() {
   const entries = systemLog(); const today = entries.filter((entry) => entry.date === dateKey());
   return `<section class="page-hero system-log-hero"><p class="eyebrow">game engine / event history</p><h1>SYSTEM LOG</h1><p>現実世界で検出された変化を、PLAYERへのSYSTEM MESSAGEとして記録します。</p><div class="log-stat"><b>${today.length}</b><span>TODAY<br>MESSAGES</span></div></section><section class="detail-card glass system-log-card"><div class="section-head"><p class="eyebrow">today's system messages</p><span>${entries.length} SAVED</span></div>${entries.length ? entries.map((entry) => { const meta = systemMessageMeta[entry.level] || systemMessageMeta[1]; return `<button class="system-log-entry ${meta.className}" data-system-target="${entry.target}"><time>${esc(entry.date === dateKey() ? entry.time : entry.date)}</time><i></i><div><small>${meta.label}</small><strong>${esc(entry.title)}</strong><p>${esc(entry.detail)}</p></div><b>›</b></button>`; }).join("") : `<div class="timeline-empty"><i></i><strong>SYSTEM MESSAGEはまだありません</strong><p>WORLD SYNCやスキル記録によって、現実の変化がここに残ります。</p></div>`}</section>`;
@@ -1119,6 +1160,11 @@ function renderPage(page, transitionDirection = "forward") {
   if (page === "player") { content = renderEnhancedPlayer(w); page = "__player"; }
   if (page === "navigator") { content = renderEnhancedNavigator(w); page = "__navigator"; }
   if (page === "systemlog") { content = renderSystemLog(); page = "__systemlog"; }
+  if (page === "system") { content = renderSystemHub(); page = "__system"; }
+  if (page === "system-world") content = renderSystemWorld();
+  if (page === "system-player") content = `<section class="page-hero system-section-hero"><p class="eyebrow">system / player settings</p><h1>PLAYER SETTINGS</h1><p>このPLAYERのID、開始日、毎日のログイン状態。</p>${renderSystemBack()}</section>${renderPlayerSettings()}`;
+  if (page === "system-experience") content = renderSystemExperience();
+  if (page === "system-data") content = renderSystemData();
   if (page === "world") content = `<section class="page-hero world-page-hero"><p class="eyebrow">real world / live</p><h1>WORLD</h1><p>いま、この場所で進行している世界。</p><div class="world-orbital"><span class="location-mark">${icon("location")}</span><div><strong>${esc(w.location)}</strong><small>${esc(w.region)}</small></div><b>${esc(w.temperature)}°</b></div></section><section class="detail-card glass"><p class="eyebrow">world conditions</p><div class="condition-list"><div><span>${icon(phaseIcon(w.phase))}</span><p>TIME<b>${esc(w.phase)}</b></p></div><div><span>${icon(weatherIcon(w.weather))}</span><p>WEATHER<b>${esc(w.weather)}</b></p></div><div><span>${icon("sun")}</span><p>SEASON<b>${esc(w.season)}</b></p></div></div><p class="ambience">${esc(w.ambience)}</p><button class="primary-action" id="page-sync">SYNC WORLD</button></section>`;
   if (page === "player") { const profile = playerProfile(); const current = currentPlayerState(w); const growth = coreGrowth(); const review = growthReview(); const reviewed = state.growthReviewWeek === weekKey(); content = `<section class="page-hero player-hero"><p class="eyebrow">character profile</p><h1>PLAYER</h1><p>現実を歩く、あなた自身のステータス。</p><div class="player-portrait"><div class="player-level-ring" style="--level-progress:${state.player.exp / 5}%"><div class="level glass"><span class="eyebrow">lv</span><strong>${state.player.level}</strong></div></div><div><strong>${esc(profile.name)}</strong><small>${profile.title}<br>DAY START · ${esc(state.status?.[dateKey()] || "UNKNOWN")}</small></div></div></section><section class="detail-card glass player-identity"><div class="section-head"><p class="eyebrow">player identity</p><span>LOCAL PROFILE</span></div><input id="player-name" maxlength="24" value="${esc(profile.name)}" aria-label="プレイヤー名"><button class="subtle-action" id="save-player-name">SAVE IDENTITY</button></section><section class="detail-card glass"><div class="section-head"><p class="eyebrow">current status</p><span class="live-status"><i></i>LIVE</span></div><p class="status-intro">いまの時間・天気・PLAYER状態から変化します。</p><div class="parameter-list">${[["HP",current.hp,"#f4b9cc"],["ENERGY",current.energy,"#bfe5d0"],["FOCUS",current.focus,"#b8e5f2"],["SPIRIT",current.spirit,"#d8ccff"],["SOCIAL",current.social,"#f5d5a9"]].map(([label,value,color]) => `<div><p><span>${label}</span><b>${value}</b></p><i><span style="width:${value}%;background:${color}"></span></i></div>`).join("")}</div></section><section class="detail-card glass"><p class="eyebrow">status effects</p><div class="effect-list">${current.effects.map(([name,copy,tone]) => `<div class="effect ${tone}"><i></i><div><strong>${name}</strong><p>${copy}</p></div></div>`).join("")}</div></section><section class="detail-card glass core-growth"><div class="section-head"><p class="eyebrow">core growth</p><span>LONG TERM</span></div><p class="status-intro">数週間〜数か月で変化する、あなたの土台。</p><div class="growth-grid">${[["creativity","CREATIVITY","INT / MAGIC"],["discipline","DISCIPLINE","WILL / STAMINA"],["curiosity","CURIOSITY","PERCEPTION"],["communication","COMMUNICATION","CHA"],["resilience","RESILIENCE","VIT"]].map(([key,label,role]) => `<div><b>${growth[key]}</b><span>${label}</span><small>${role}</small></div>`).join("")}</div></section><section class="detail-card glass growth-review"><div class="section-head"><p class="eyebrow">growth review</p><span>${reviewed ? "COMPLETE" : "WEEKLY"}</span></div>${reviewed ? `<p class="status-intro">今週の成長は確定済みです。次の週にまた観測します。</p>` : review.length ? `<p class="status-intro">最近のWORLD LOGから、成長候補を検出しました。</p><div class="review-gains">${review.map(([, label, gain]) => `<span>${label}<b>+${gain}</b></span>`).join("")}</div><button class="primary-action" id="apply-growth">APPLY GROWTH</button>` : `<p class="status-intro">記録やDISCOVERYが増えると、成長候補が現れます。</p>`}</section>`; }
   if (page === "navigator") { const brief = navigatorBrief(w); content = `<section class="page-hero navigator-hero"><p class="eyebrow">personal world navigator</p><h1>NAVIGATOR</h1><p>現実のシグナルを読み、いまのあなたを補佐します。</p><div class="navigator-core ${brief.tone}"><i></i><span>ONLINE<br><b>LOCAL INTELLIGENCE</b></span><em><u></u><u></u><u></u><u></u></em></div></section><section class="navigator-message glass ${brief.tone}"><p class="eyebrow">${brief.tag}</p><h2>${brief.title}</h2><p>${brief.copy}</p><span class="navigator-scan">ANALYZING WORLD SIGNALS</span></section><section class="detail-card glass"><p class="eyebrow">signals read</p><div class="navigator-signals"><span>${esc(w.location || "LOCATION UNKNOWN")}<small>LOCATION</small></span><span>${esc(w.weather || "WEATHER UNKNOWN")}<small>WEATHER</small></span><span>${state.player.energy}<small>ENERGY</small></span><span>${state.player.focus}<small>FOCUS</small></span></div><button class="primary-action" id="refresh-navigator">OBSERVE AGAIN</button></section><p class="navigator-note">このNAVIGATORは端末内のデータだけで観測します。外部AI・課金・データ送信はありません。</p>`; }
@@ -1134,20 +1180,22 @@ function renderPage(page, transitionDirection = "forward") {
   if (page === "system") content += renderBackupDetails();
   if (page === "system") content += renderPlayData();
   if (page === "system") content += renderAreaSettings();
-  if (page === "__player") page = "player";
+  if (page === "__player") { page = "player"; content += renderTitleCollection(); }
   if (page === "__navigator") page = "navigator";
   if (page === "__systemlog") page = "systemlog";
+  if (page === "__system") page = "system";
   if (page === "log") content += renderWorldActivityTimeline();
   if (page === "skills") requestAnimationFrame(localiseSkillChrome);
   app.innerHTML = `<div class="shell page-shell page-enter page-enter-${transitionDirection}" data-page="${page}"><header class="page-header"><p class="eyebrow">LIFE SYSTEM</p></header>${pageNav(page)}<main class="page-content">${content}</main><button class="home-fab glass" data-home aria-label="HOMEへ戻る"><i>⌂</i><span>HOME</span></button></div>`;
   app.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
+  const systemReturnPage = page === "system-world" ? "system-world" : page === "system-player" ? "system-player" : page === "system-experience" ? "system-experience" : page === "system-data" ? "system-data" : "system";
   bindPageSwipe(page);
   app.querySelectorAll("[data-home]").forEach((button) => button.addEventListener("click", () => { systemFeedback("back"); const shell = app.querySelector(".shell"); shell.classList.add("page-exit-back"); setTimeout(renderHome, 300); }));
   app.querySelector("#page-sync")?.addEventListener("click", sync);
   app.querySelector("#system-sync")?.addEventListener("click", sync);
   app.querySelector("#area-sync-check")?.addEventListener("click", sync);
   app.querySelector("#system-status")?.addEventListener("click", showStatus);
-  app.querySelector("#save-play-data")?.addEventListener("click", () => { const value = app.querySelector("#player-initialized")?.value; if (!value) return; playDataState().initializedAt = value; save(); renderPage("system"); });
+  app.querySelector("#save-play-data")?.addEventListener("click", () => { const value = app.querySelector("#player-initialized")?.value; if (!value) return; playDataState().initializedAt = value; save(); renderPage(systemReturnPage); });
   app.querySelector("#set-home-area")?.addEventListener("click", async () => {
     try { await registerCurrentArea({ name:"HOME BASE", type:"home", radius:80 }); renderPage("system"); } catch { alert("位置情報を許可して、HOME BASEを登録してください。"); }
   });
@@ -1171,23 +1219,23 @@ function renderPage(page, transitionDirection = "forward") {
     const search = areaSearchState(); const item = search.results?.[Number(button.dataset.areaResult)]; if (!item) return;
     persistArea({ name:search.name, type:search.type, radius:search.radius, latitude:item.latitude, longitude:item.longitude, sourceLabel:item.label }); delete state.areaSearch; save(); renderPage("system");
   }));
-  app.querySelector("#clear-area-search")?.addEventListener("click", () => { delete state.areaSearch; save(); renderPage("system"); });
-  app.querySelectorAll("[data-remove-area]").forEach((button) => button.addEventListener("click", () => { state.areas = areaState().filter((area) => area.id !== button.dataset.removeArea); save(); renderPage("system"); }));
-  if (page === "system") {
+  app.querySelector("#clear-area-search")?.addEventListener("click", () => { delete state.areaSearch; save(); renderPage(systemReturnPage); });
+  app.querySelectorAll("[data-remove-area]").forEach((button) => button.addEventListener("click", () => { state.areas = areaState().filter((area) => area.id !== button.dataset.removeArea); save(); renderPage(systemReturnPage); }));
+  if (page === "system-player") {
     const updatePlayDataClock = () => { const now = new Date(); const playtime = app.querySelector("#playtime-counter"); const day = app.querySelector("#play-day-counter"); if (playtime) playtime.textContent = formatPlayTime(now); if (day) day.textContent = gameDay(now); };
     updatePlayDataClock(); homeClock = setInterval(updatePlayDataClock, 1000);
   }
   app.querySelector("#connect-calendar")?.addEventListener("click", () => connectGoogleCalendar("system"));
-  app.querySelector("#allow-notifications")?.addEventListener("click", async () => { const result = await requestLifeNotifications(); if (result === "granted") { await showLifeNotification("SYSTEM MESSAGE", "SYSTEM LINK COMPLETE\nNOTIFICATION CHANNEL: OPEN", "permission-confirmed"); } renderPage("system"); });
+  app.querySelector("#allow-notifications")?.addEventListener("click", async () => { const result = await requestLifeNotifications(); if (result === "granted") { await showLifeNotification("SYSTEM MESSAGE", "SYSTEM LINK COMPLETE\nNOTIFICATION CHANNEL: OPEN", "permission-confirmed"); } renderPage(systemReturnPage); });
   app.querySelector("#test-notification")?.addEventListener("click", () => showLifeNotification("SYSTEM MESSAGE", "TEST SIGNAL RECEIVED\nPLAYER LINK: STABLE\nNo action required.", "notification-test"));
-  app.querySelectorAll("[data-notification-toggle]").forEach((button) => button.addEventListener("click", () => { const settings = notificationSettings(); const key = button.dataset.notificationToggle; settings[key] = !settings[key]; save(); renderPage("system"); }));
-  app.querySelectorAll("[data-intervention-level]").forEach((button) => button.addEventListener("click", () => { navigatorSettings().intervention = button.dataset.interventionLevel; save(); systemFeedback("confirm"); renderPage("system"); }));
+  app.querySelectorAll("[data-notification-toggle]").forEach((button) => button.addEventListener("click", () => { const settings = notificationSettings(); const key = button.dataset.notificationToggle; settings[key] = !settings[key]; save(); renderPage(systemReturnPage); }));
+  app.querySelectorAll("[data-intervention-level]").forEach((button) => button.addEventListener("click", () => { navigatorSettings().intervention = button.dataset.interventionLevel; save(); systemFeedback("confirm"); renderPage(systemReturnPage); }));
   app.querySelectorAll("[data-system-target]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.systemTarget)));
   app.querySelector("#export-save")?.addEventListener("click", exportSaveData);
   app.querySelector("#import-save")?.addEventListener("click", () => app.querySelector("#import-save-file").click());
   app.querySelector("#import-save-file")?.addEventListener("change", (event) => importSaveData(event.target.files?.[0]));
-  app.querySelector("#toggle-sound")?.addEventListener("click", () => { const feedback = feedbackSettings(); feedback.sound = feedback.sound === false; save(); systemFeedback("confirm"); renderPage("system"); });
-  app.querySelector("#save-player-name")?.addEventListener("click", () => { const name = app.querySelector("#player-name").value.trim(); if (!name) return; state.profile ||= {}; state.profile.name = name.toUpperCase(); save(); renderPage("player"); });
+  app.querySelector("#toggle-sound")?.addEventListener("click", () => { const feedback = feedbackSettings(); feedback.sound = feedback.sound === false; save(); systemFeedback("confirm"); renderPage(systemReturnPage); });
+  app.querySelector("#save-player-name")?.addEventListener("click", () => { const name = app.querySelector("#player-name").value.trim(); if (!name) return; state.profile ||= {}; state.profile.name = name.toUpperCase(); save(); renderPage(systemReturnPage); });
   app.querySelector("#apply-growth")?.addEventListener("click", () => { growthReview().forEach(([key,, gain]) => { state.growth[key] = Math.min(99, state.growth[key] + gain); }); state.growthReviewWeek = weekKey(); state.log.unshift({ id:crypto.randomUUID(), day:dateKey(), time:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), kind:"SYSTEM", title:"CORE GROWTH UPDATED", detail:"Weekly growth review completed." }); save(); renderPage("player"); });
   app.querySelector("#refresh-navigator")?.addEventListener("click", () => { const shell = app.querySelector(".page-shell"); shell.classList.add("navigator-refresh"); setTimeout(() => renderPage("navigator"), 360); });
   app.querySelectorAll("[data-calendar-view]").forEach((button) => button.addEventListener("click", () => { state.calendarLogView = button.dataset.calendarView; save(); renderPage("log"); }));
