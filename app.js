@@ -1062,7 +1062,9 @@ function navigate(page, requestedDirection) {
   if (!screen || screen.dataset.page === page) return;
   const current = screen.dataset.page === "home" ? "world" : screen.dataset.page === "systemlog" || String(screen.dataset.page).startsWith("system-") ? "system" : screen.dataset.page;
   const target = page === "systemlog" ? "system" : page;
-  const direction = requestedDirection || (swipePages.indexOf(target) < swipePages.indexOf(current) ? "back" : "forward");
+  const enteringSystemSection = String(page).startsWith("system-");
+  const leavingSystemSection = String(screen.dataset.page).startsWith("system-") && page === "system";
+  const direction = requestedDirection || (enteringSystemSection ? "forward" : leavingSystemSection ? "back" : swipePages.indexOf(target) < swipePages.indexOf(current) ? "back" : "forward");
   systemFeedback("enter", page);
   screen.classList.add(`page-exit-${direction}`);
   setTimeout(() => renderPage(page, direction), 300);
