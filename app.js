@@ -125,6 +125,9 @@ const homeBgmScenes = [
   { id:"campus-day", label:"CAMPUS / DAY", source:"./assets/audio/campus-day.mp3", matches:(now, world) => isCampusArea(world) && ["MORNING","AFTERNOON"].includes(phase(now.getHours())) },
   { id:"home-deep-night", label:"HOME / DEEP NIGHT", source:"./assets/audio/home-deep-night.mp3", matches:(now) => { const minutes = now.getHours() * 60 + now.getMinutes(); return minutes >= 90 && minutes < 270; } },
   { id:"home-morning", label:"HOME / MORNING", source:"./assets/audio/home-morning.mp3", matches:(now) => now.getHours() >= 5 && now.getHours() < 11 },
+  { id:"kaphar", label:"MANUAL / KAPHAR", source:"./assets/audio/unassigned-kaphar.mp3", matches:() => false },
+  { id:"aoharu-band", label:"MANUAL / AO HARU BAND", source:"./assets/audio/unassigned-aoharu-band-arrange.mp3", matches:() => false },
+  { id:"constant-piano", label:"MANUAL / CONSTANT PIANO", source:"./assets/audio/unassigned-constant-moderate-piano-arrange.mp3", matches:() => false },
   { id:"home-night", label:"HOME / NIGHT", source:"./assets/audio/home-night.mp3", matches:() => true }
 ];
 const liquidArtworkProfiles = {
@@ -134,6 +137,9 @@ const liquidArtworkProfiles = {
   "campus-day": { tone:"liquid-campus", level:54, particles:4, motifs:4 },
   "home-deep-night": { tone:"liquid-deep-night", level:48, particles:6, motifs:5 },
   "home-morning": { tone:"liquid-morning", level:70, particles:5, motifs:3 },
+  "kaphar": { tone:"liquid-deep-night", level:52, particles:4, motifs:3 },
+  "aoharu-band": { tone:"liquid-campus", level:58, particles:5, motifs:4 },
+  "constant-piano": { tone:"liquid-meal", level:50, particles:3, motifs:2 },
   "home-night": { tone:"liquid-home-night", level:58, particles:4, motifs:4 }
 };
 function selectedHomeBgmScene(now = new Date(), world = state.world || {}) {
@@ -199,12 +205,11 @@ function playMorningFieldEntry(previous, next, now = new Date()) {
 function renderHomeBgmControl() {
   const enabled = homeBgmSettings().enabled;
   const scene = selectedHomeBgmScene();
-  const title = scene.id === "christmas-world" ? "Cherry Berry Merry" : scene.id === "meal-phase" ? "Guruguru Usagi" : scene.id === "rain-field" ? "Blooming moon" : scene.id === "campus-day" ? "Koi is Love" : scene.id === "home-morning" ? "Midsummer cat" : scene.id === "home-deep-night" ? "Suger story" : "step by step - night arranged";
+  const title = localBgmTitle(scene);
   return `<section class="detail-card glass home-bgm-control"><div class="section-head"><p class="eyebrow">local world audio</p><span>${enabled ? scene.label : "OFF"}</span></div><strong>HOME AMBIENCE</strong><p>${scene.label}：${title}。最初の操作後から小さな音量でループします。</p><button class="subtle-action" id="toggle-home-bgm">${enabled ? "HOME BGMを停止" : "HOME BGMを開始"}</button></section>`;
 }
-function localBgmTitle(scene) {
-  return scene.id === "christmas-world" ? "Cherry Berry Merry" : scene.id === "meal-phase" ? "Guruguru Usagi" : scene.id === "rain-field" ? "Blooming moon" : scene.id === "campus-day" ? "Koi is Love" : scene.id === "home-morning" ? "Midsummer cat" : scene.id === "home-deep-night" ? "Suger story" : "step by step - night arranged";
-}
+const localBgmTitles = { "christmas-world":"Cherry Berry Merry", "meal-phase":"Guruguru Usagi", "rain-field":"Blooming moon", "campus-day":"Koi is Love", "home-morning":"Midsummer cat", "home-deep-night":"Suger story", kaphar:"Kaphar", "aoharu-band":"Aoharu - Band Arrange", "constant-piano":"Constant Moderate Piano Arrange", "home-night":"step by step - night arranged" };
+function localBgmTitle(scene) { return localBgmTitles[scene.id] || scene.label; }
 function formatAudioTime(value) {
   if (!Number.isFinite(value) || value < 0) return "0:00";
   const minutes = Math.floor(value / 60);
