@@ -60,6 +60,15 @@ let fieldEntryAudio;
 let celebrationAudio;
 const feedbackSettings = () => (state.feedback ||= { sound:true });
 const homeBgmSettings = () => (state.homeBgm ||= { enabled:true });
+function hasObservedPrecipitation(world = {}) {
+  return Math.max(Number(world.precipitation) || 0, Number(world.rainfall) || 0) >= .1;
+}
+function isRainWorld(world = state.world || {}) { return hasObservedPrecipitation(world); }
+function normalizeWorldWeather(world = state.world) {
+  if (!world || !/RAIN|DRIZZLE|SHOWER|THUNDER/i.test(String(world.weather || "")) || isRainWorld(world)) return;
+  world.weather = Number(world.cloudCover || 0) >= 60 ? "OVERCAST" : "PARTLY CLOUDY";
+}
+normalizeWorldWeather();
 const celebrationState = () => (state.celebrations ||= { played:{}, pending:null });
 function celebrationKey(kind, now = new Date()) { return `${dateKey(now)}:${kind}`; }
 function queueCelebration(kind, label, detail, now = new Date()) {
@@ -78,21 +87,21 @@ function scheduleLoginCelebration(now = new Date()) {
 }
 function playPendingCelebration() {
   const celebrations = celebrationState(); const pending = celebrations.pending;
+  if (pending && (!String(pending.key || "").startsWith(`${dateKey()}:`) || (String(pending.key || "").endsWith(":title-rain-walker") && !isRainWorld()))) { celebrations.pending = null; save(); return false; }
   if (!pending || (celebrationAudio && !celebrationAudio.paused)) return false;
   const resumeHomeBgm = Boolean(homeBgm && !homeBgm.paused && homeBgmSettings().enabled);
-  if (resumeHomeBgm) fadeHomeBgm(.018, 260);
+  if (resumeHomeBgm) { cancelAnimationFrame(homeBgmFade); homeBgm.pause(); }
   celebrationAudio = new Audio("./assets/audio/celebration-event.mp3");
   celebrationAudio.loop = false; celebrationAudio.preload = "auto"; celebrationAudio.volume = .001;
-  celebrationAudio.addEventListener("ended", () => { if (!homeBgmSettings().enabled) return; if (resumeHomeBgm) fadeHomeBgm(.16, 900); else startHomeBgm(); }, { once:true });
+  celebrationAudio.addEventListener("ended", () => { if (!homeBgmSettings().enabled) return; if (resumeHomeBgm) homeBgm.play().then(() => fadeHomeBgm(.16, 900)).catch(() => {}); else startHomeBgm(); }, { once:true });
   celebrationAudio.play().then(() => {
     celebrations.played[pending.key] = new Date().toISOString(); celebrations.pending = null; save();
     const started = performance.now(); const fade = (time) => { const progress = Math.min(1, (time - started) / 850); celebrationAudio.volume = .28 * progress; if (progress < 1) requestAnimationFrame(fade); }; requestAnimationFrame(fade);
-  }).catch(() => { if (resumeHomeBgm) fadeHomeBgm(.16, 400); });
+  }).catch(() => { if (resumeHomeBgm) homeBgm.play().then(() => fadeHomeBgm(.16, 400)).catch(() => {}); });
   return true;
 }
 function isCampusArea(world = state.world || {}) { return Boolean(world.area?.registered && /CAMPUS|KGU|大学|キャンパス/i.test(String(world.area.name || ""))); }
 function isOutsideHome(world = state.world || {}) { return Boolean(world.area?.type && world.area.type !== "home"); }
-function isRainWorld(world = state.world || {}) { return /RAIN|DRIZZLE|SHOWER|THUNDER/i.test(String(world.weather || "")); }
 function activeMealEvent(now = new Date()) {
   return (state.calendar?.events || []).find((event) => {
     const start = new Date(event.start?.dateTime || event.start?.date); const end = new Date(event.end?.dateTime || event.end?.date);
@@ -139,7 +148,7 @@ function fadeHomeBgm(target, duration = 650, after) {
   homeBgmFade = requestAnimationFrame(frame);
 }
 function startHomeBgm() {
-  if (!homeBgmSettings().enabled) return Promise.resolve(false);
+  if (!homeBgmSettings().enabled || (celebrationAudio && !celebrationAudio.paused) || (fieldEntryAudio && !fieldEntryAudio.paused)) return Promise.resolve(false);
   syncHomeBgmScene();
   const audio = getHomeBgm();
   const playback = audio.play();
@@ -168,11 +177,11 @@ function playMorningFieldEntry(previous, next, now = new Date()) {
   const key = `${dateKey()}:${previous.area.id}:morning-field-entry`;
   if (state.audioEvents?.[key]) return;
   const resumeHomeBgm = Boolean(homeBgm && !homeBgm.paused && homeBgmSettings().enabled);
-  if (resumeHomeBgm) fadeHomeBgm(.025, 260);
+  if (resumeHomeBgm) { cancelAnimationFrame(homeBgmFade); homeBgm.pause(); }
   fieldEntryAudio = new Audio("./assets/audio/morning-field-entry.mp3");
   fieldEntryAudio.loop = false; fieldEntryAudio.preload = "auto"; fieldEntryAudio.volume = .001;
-  fieldEntryAudio.addEventListener("ended", () => { if (resumeHomeBgm && homeBgmSettings().enabled) fadeHomeBgm(.16, 700); }, { once:true });
-  fieldEntryAudio.play().then(() => { state.audioEvents ||= {}; state.audioEvents[key] = now.toISOString(); save(); const started = performance.now(); const fade = (time) => { const progress = Math.min(1, (time - started) / 800); fieldEntryAudio.volume = .24 * progress; if (progress < 1) requestAnimationFrame(fade); }; requestAnimationFrame(fade); }).catch(() => { if (resumeHomeBgm) fadeHomeBgm(.16, 400); });
+  fieldEntryAudio.addEventListener("ended", () => { if (resumeHomeBgm && homeBgmSettings().enabled) homeBgm.play().then(() => fadeHomeBgm(.16, 700)).catch(() => {}); }, { once:true });
+  fieldEntryAudio.play().then(() => { state.audioEvents ||= {}; state.audioEvents[key] = now.toISOString(); save(); const started = performance.now(); const fade = (time) => { const progress = Math.min(1, (time - started) / 800); fieldEntryAudio.volume = .24 * progress; if (progress < 1) requestAnimationFrame(fade); }; requestAnimationFrame(fade); }).catch(() => { if (resumeHomeBgm) homeBgm.play().then(() => fadeHomeBgm(.16, 400)).catch(() => {}); });
 }
 function renderHomeBgmControl() {
   const enabled = homeBgmSettings().enabled;
@@ -389,7 +398,7 @@ const titleCatalog = [
   { id:"first-area", name:"境界を越えた者", rarity:"COMMON", condition:() => Object.keys(archiveState().prefectures).length >= 1 },
   { id:"mission-runner", name:"約束を完了する者", rarity:"UNCOMMON", condition:() => worldEventMemory().cleared >= 1 },
   { id:"night-explorer", name:"夜を歩く者", rarity:"UNCOMMON", condition:() => /NIGHT/.test(state.world?.phase || "") },
-  { id:"rain-walker", name:"雨の世界を進む者", rarity:"UNCOMMON", condition:() => /RAIN|DRIZZLE|THUNDER/.test(state.world?.weather || "") },
+  { id:"rain-walker", name:"雨の世界を進む者", rarity:"UNCOMMON", condition:() => isRainWorld(state.world) },
   { id:"atlas-awakening", name:"地図を広げる者", rarity:"RARE", condition:() => Object.keys(archiveState().prefectures).length >= 3 }
 ];
 const titleState = () => (state.titles ||= { unlocked:{} });
@@ -555,7 +564,7 @@ function phase(hour) { return hour < 5 ? "NIGHT" : hour < 11 ? "MORNING" : hour 
 function season(month) { return month >= 5 && month <= 7 ? "SUMMER" : month >= 8 && month <= 10 ? "AUTUMN" : month <= 1 || month === 11 ? "WINTER" : "SPRING"; }
 function navigatorBrief(world = state.world || {}, player = state.player) {
   const notes = [];
-  const weather = world.weather || "";
+  const weather = isRainWorld(world) ? world.weather || "" : "";
   const isNight = /NIGHT/.test(world.phase || phase(new Date().getHours()));
   if (/RAIN|DRIZZLE|THUNDER/.test(weather)) notes.push({ tag:"CAUTION", title:"RAIN EVENT ACTIVE", copy:"雨の世界です。移動時は少しだけ慎重に。", tone:"rain" });
   if (player.energy <= 40) notes.push({ tag:"RECOVERY", title:"ENERGY LOW", copy:"安全地帯で、次の行動をゆっくり選びましょう。", tone:"rest" });
@@ -583,7 +592,7 @@ function navigatorInsights(world = state.world || {}) {
   const next = upcomingCalendarEvent();
   const insights = [];
   const add = (item) => { if ((interventionLevels[item.level || "standard"]?.rank || 2) <= currentLevel.rank) insights.push(item); };
-  const weather = String(world.weather || "");
+  const weather = String(isRainWorld(world) ? world.weather || "" : "");
   const minutesTo = (event) => Math.round((new Date(event.start?.dateTime || event.start?.date) - now) / 60000);
   if (now.getHours() < 11) add({ level:"standard", tone:"calm", tag:"TODAY FIELD", title:"本日のプレイフィールド", copy:events.length ? `固定EVENTは${events.length}件です。${next ? `最初のEVENTは ${calendarTime(next)}。` : ""}` : "本日の固定EVENTはまだありません。自由に行動できます。" });
   if (/RAIN|DRIZZLE|THUNDER/.test(weather)) add({ level:"minimal", tone:"rain", tag:"EQUIPMENT CHECK", title:"雨のシグナルを観測しました", copy:"移動するなら、必要な装備を確認できます。" });
@@ -637,7 +646,7 @@ function currentPlayerState(world = state.world || {}) {
   const p = state.player;
   const hour = new Date().getHours();
   const night = /NIGHT/.test(world.phase || phase(hour));
-  const rain = /RAIN|DRIZZLE|THUNDER/.test(world.weather || "");
+  const rain = isRainWorld(world);
   const energy = Math.max(15, Math.min(100, p.energy + (night ? -8 : hour < 11 ? 5 : 0)));
   const focus = Math.max(15, Math.min(100, p.focus + (night ? -4 : hour < 11 ? 6 : 0)));
   const spirit = Math.max(15, Math.min(100, Math.round((energy + focus) / 2) + (rain ? 2 : 0)));
@@ -687,8 +696,8 @@ function renderWorldCore(world, current, nextMission) {
   const dayEvents = (state.calendar?.events || []).filter((event) => new Date(event.start?.dateTime || event.start?.date).toDateString() === now.toDateString()).slice(0,6);
   const objective = state.quests?.find((quest) => quest.status === "active"); const isOpen = state.coreExpanded === true;
   const clockMood = now.getHours() < 5 ? "deepnight" : now.getHours() < 9 ? "morning" : now.getHours() < 17 ? "day" : now.getHours() < 21 ? "evening" : "night";
-  const weather = String(world.weather || "").toUpperCase(); const cloudCover = Math.max(0, Math.min(100, Number(world.cloudCover) || 0)); const weatherMood = /THUNDER/.test(weather) ? "thunder" : /SNOW/.test(weather) ? "snow" : /RAIN|DRIZZLE|SHOWER/.test(weather) ? "rain" : /FOG/.test(weather) ? "fog" : cloudCover >= 55 || /CLOUD|OVERCAST/.test(weather) ? "cloud" : "clear";
-  const cloudField = /THUNDER|RAIN|DRIZZLE|SHOWER|OVERCAST/.test(weather) ? "overcast" : cloudCover < 18 ? (/PARTLY|CLOUD/.test(weather) ? "scattered" : "clear") : cloudCover < 45 ? "scattered" : cloudCover < 76 ? "broken" : "overcast";
+  const weather = String(world.weather || "").toUpperCase(); const precipitationActive = isRainWorld(world); const cloudCover = Math.max(0, Math.min(100, Number(world.cloudCover) || 0)); const weatherMood = precipitationActive ? "rain" : /SNOW/.test(weather) ? "snow" : /FOG/.test(weather) ? "fog" : cloudCover >= 55 || /CLOUD|OVERCAST/.test(weather) ? "cloud" : "clear";
+  const cloudField = precipitationActive || /OVERCAST/.test(weather) ? "overcast" : cloudCover < 18 ? (/PARTLY|CLOUD/.test(weather) ? "scattered" : "clear") : cloudCover < 45 ? "scattered" : cloudCover < 76 ? "broken" : "overcast";
   const humidity = Math.max(0, Math.min(100, Number(world.humidity) || 0)); const precipitation = Math.max(0, Number(world.precipitation) || 0); const rainfall = Math.max(0, Number(world.rainfall) || 0);
   const precipitationLevel = Math.max(0, Math.min(1, Math.max(precipitation, rainfall) / 7)); const cloudDepth = Math.max(0, Math.min(1, cloudCover / 100 * .78 + humidity / 100 * .12 + precipitationLevel * .24));
   const cloudOpacity = .018 + cloudDepth * .69; const cloudFarOpacity = .04 + cloudDepth * .37; const cloudMidOpacity = .03 + cloudDepth * .54; const cloudNearOpacity = .02 + cloudDepth * .6;
@@ -697,7 +706,7 @@ function renderWorldCore(world, current, nextMission) {
   const windX = (Math.sin(windRadians) * (5 + windStrength * .85)).toFixed(1); const windY = (-Math.cos(windRadians) * (3 + windStrength * .48)).toFixed(1); const cloudDuration = Math.max(18, 54 - windStrength * 2.1).toFixed(1);
   const moonGlow = celestial.illumination / 100 * celestial.moonOpacity; const twilight = Math.max(0, Math.min(1, 1 - Math.abs(celestial.altitude + 2) / 15)); const cloudLight = Math.max(celestial.sunVisibility, moonGlow, twilight * .56);
   const cloudDark = night ? blendHex("182a48","506681",cloudLight) : blendHex("668198","a9c0cf",cloudLight); const cloudMid = night ? blendHex("304864","9db3cb",cloudLight) : blendHex("90a9b8","edf2f5",cloudLight); const cloudLit = night ? blendHex("657c9a","dbe7f2",cloudLight) : blendHex("c4d5dc","ffffff",cloudLight);
-  const rainOpacity = Math.max(0, Math.min(.74, precipitationLevel * .72 + (/RAIN|DRIZZLE|SHOWER|THUNDER/.test(weather) ? .1 : 0))); const hazeOpacity = Math.max(0, Math.min(.42, (humidity - 62) / 108 + precipitationLevel * .1)); const clarity = Math.max(.72, Math.min(1.14, 1.14 - humidity * .0034 - precipitationLevel * .18)); const starVisibility = celestial.starOpacity * (.54 + clarity * .46);
+  const rainOpacity = precipitationActive ? Math.max(.06, Math.min(.74, precipitationLevel * .72 + .1)) : 0; const hazeOpacity = Math.max(0, Math.min(.42, (humidity - 62) / 108 + precipitationLevel * .1)); const clarity = Math.max(.72, Math.min(1.14, 1.14 - humidity * .0034 - precipitationLevel * .18)); const starVisibility = celestial.starOpacity * (.54 + clarity * .46);
   return `<section class="player-core world-core ${isOpen ? "is-open" : ""}" data-clock="${clockMood}" data-sky="${night ? "night" : "day"}" data-weather="${weatherMood}" data-cloud="${cloudField}" data-season="${esc(world.season || "")}" aria-label="WORLD CORE"><div class="core-meta"><span>REAL WORLD / LIVE</span><b><i></i>LINK STABLE</b></div><div class="core-weather">${esc(world.temperature || "—")}° / ${esc(world.weather || "UNKNOWN")}</div><div class="core-shell"><div class="core-orbit core-orbit-a"></div><div class="core-orbit core-orbit-b"></div><div class="core-event-ring"><i class="core-time-hand" style="--clock-angle:${minutesNow / 1440 * 360}deg"></i>${dayEvents.map((event) => { const start = new Date(event.start?.dateTime || event.start?.date); const angle = (start.getHours() * 60 + start.getMinutes()) / 1440 * 360; return `<button class="core-event-marker ${nextMission?.id === event.id ? "is-next" : ""}" style="--event-angle:${angle}deg" data-page="log" aria-label="${esc(event.title)}"></button>`; }).join("")}</div><div class="world-globe" style="--sun-x:${celestial.sunX}%;--sun-y:${celestial.sunY}%;--sun-visibility:${celestial.sunVisibility};--sky-top:${celestial.skyTop};--sky-bottom:${celestial.skyBottom};--star-opacity:${celestial.starOpacity};--star-visibility:${starVisibility};--night-alpha:${celestial.nightAlpha};--moon-x:${celestial.moonX}%;--moon-y:${celestial.moonY}%;--moon-shadow:${celestial.moonShadow};--moon-opacity:${celestial.moonOpacity};--moon-brightness:${.46 + celestial.illumination * .0054};--cloud-opacity:${cloudOpacity};--cloud-far-opacity:${cloudFarOpacity};--cloud-mid-opacity:${cloudMidOpacity};--cloud-near-opacity:${cloudNearOpacity};--cloud-dark:${cloudDark};--cloud-mid:${cloudMid};--cloud-lit:${cloudLit};--rain-opacity:${rainOpacity};--haze-opacity:${hazeOpacity};--clarity:${clarity};--wind-x:${windX}px;--wind-y:${windY}px;--wind-far-x:${(windX * .3).toFixed(1)}px;--wind-far-y:${(windY * .3).toFixed(1)}px;--wind-mid-x:${(windX * .65).toFixed(1)}px;--wind-mid-y:${(windY * .65).toFixed(1)}px;--cloud-far-duration:${(cloudDuration * 1.82).toFixed(1)}s;--cloud-mid-duration:${cloudDuration}s;--cloud-near-duration:${(cloudDuration * .63).toFixed(1)}s"><i class="world-sky"></i><i class="world-stars">${stars}</i><i class="world-sun"></i><i class="world-moon"></i><i class="world-horizon"></i><i class="world-clouds"><b class="cloud-far"></b><b class="cloud-mid"></b><b class="cloud-near"></b></i><i class="world-weather"></i><i class="world-caustic"></i><i class="world-glass-edge"></i><img class="world-glass-shell" src="./assets/world-core-glass-shell.png" alt=""><span class="core-center" aria-hidden="true"></span></div></div><div class="core-location"><small>YOU ARE HERE</small><strong>${esc(world.location || "WORLD")}</strong><span>${esc(world.region || "REAL WORLD")}</span></div><section class="core-objective"><small>CURRENT OBJECTIVE</small><strong>${objective ? esc(objective.title) : "FREE ROAM"}</strong><span>${objective ? "TRACKED QUEST" : "OPEN WORLD"}</span></section></section>`;
 }
 function updateWorldCoreLive() {
@@ -714,7 +723,7 @@ function renderPlayerCore(world, current, nextMission) {
   const now = new Date(); const minutesNow = now.getHours() * 60 + now.getMinutes(); const nextStart = nextMission ? new Date(nextMission.start?.dateTime || nextMission.start?.date) : null; const freeMinutes = nextStart ? Math.max(0, Math.round((nextStart - now) / 60000)) : null;
   const clockAngle = minutesNow / 1440 * 360; const dayEvents = (state.calendar?.events || []).filter((event) => { const start = new Date(event.start?.dateTime || event.start?.date); return start.toDateString() === now.toDateString(); }).slice(0,6);
   const tones = ["#f2b6ca", "#afe0c4", "#a9dded", "#cbb8ed"]; const values = [current.hp,current.energy,current.focus,current.spirit]; const labels = ["HP","ENERGY","FOCUS","SPIRIT"]; const icons = { "WELL RESTED":"✦", "FOCUSED":"◌", "TIRED":"↓", "SCATTERED":"~", "NIGHT PHASE":"☾", "RAIN WORLD":"⌇", "BALANCED":"◉" };
-  const objective = state.quests?.find((quest) => quest.status === "active"); const isOpen = state.coreExpanded === true; const clockMood = now.getHours() < 5 ? "deepnight" : now.getHours() < 9 ? "morning" : now.getHours() < 17 ? "day" : now.getHours() < 21 ? "evening" : "night"; const weatherMood = /RAIN|DRIZZLE|THUNDER/.test(world.weather || "") ? "rain" : /CLOUD|OVERCAST|FOG/.test(world.weather || "") ? "cloud" : "clear";
+  const objective = state.quests?.find((quest) => quest.status === "active"); const isOpen = state.coreExpanded === true; const clockMood = now.getHours() < 5 ? "deepnight" : now.getHours() < 9 ? "morning" : now.getHours() < 17 ? "day" : now.getHours() < 21 ? "evening" : "night"; const weatherMood = isRainWorld(world) ? "rain" : /CLOUD|OVERCAST|FOG/.test(world.weather || "") ? "cloud" : "clear";
   return `<section class="player-core ${isOpen ? "is-open" : ""}" data-clock="${clockMood}" data-weather="${weatherMood}" aria-label="現在のPLAYER CORE"><div class="core-area-bg">${esc(world.location || "WORLD")}</div><div class="core-meta"><span>REAL WORLD / LIVE</span><b><i></i>LINK STABLE</b></div><div class="core-weather">${esc(world.temperature || "—")}° / ${esc(world.weather || "UNKNOWN")}</div><div class="core-shell"><div class="core-orbit core-orbit-a"></div><div class="core-orbit core-orbit-b"></div><div class="core-event-ring"><i class="core-time-hand" style="--clock-angle:${clockAngle}deg"></i>${dayEvents.map((event) => { const start = new Date(event.start?.dateTime || event.start?.date); const angle = (start.getHours() * 60 + start.getMinutes()) / 1440 * 360; return `<button class="core-event-marker ${nextMission?.id === event.id ? "is-next" : ""}" style="--event-angle:${angle}deg" data-page="log" aria-label="${esc(event.title)}"></button>`; }).join("")}</div><svg class="core-condition-ring" viewBox="0 0 200 200" aria-hidden="true"><circle class="core-ring-track" cx="100" cy="100" r="78"/>${values.map((value,index) => `<circle class="core-ring-arc" cx="100" cy="100" r="78" pathLength="100" style="--arc:${Math.max(4, value * .215)};--offset:${index * 25};--arc-color:${tones[index]}"/>`).join("")}</svg><div class="core-satellites">${current.effects.map(([name,,tone]) => `<span class="${tone}" title="${esc(name)}">${icons[name] || "•"}</span>`).join("")}</div><button class="core-center" id="toggle-player-core"><small>${nextMission ? "NEXT EVENT" : "WORLD PHASE"}</small><strong>${nextMission ? `${calendarTime(nextMission)}` : "FREE ROAM"}</strong><b>${nextMission ? (freeMinutes !== null ? `あと ${freeMinutes} MIN` : esc(nextMission.title)) : "OPEN WORLD"}</b><em>${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false})}</em></button></div><div class="core-location"><small>YOU ARE HERE</small><strong>${esc(world.location || "WORLD")}</strong><span>${esc(world.region || "REAL WORLD")}</span></div><section class="core-objective"><small>CURRENT OBJECTIVE</small><strong>${objective ? esc(objective.title) : "FREE ROAM"}</strong><span>${objective ? "TRACKED QUEST" : "探索・休憩・次の選択はあなた次第"}</span></section><section class="core-expanded"><div class="core-expanded-head"><p>CONDITION DETAIL</p><button id="close-player-core" aria-label="閉じる">×</button></div>${values.map((value,index) => `<div><span>${labels[index]}</span><i><b style="width:${value}%;background:${tones[index]}"></b></i><strong>${value}</strong></div>`).join("")}<button class="subtle-action" data-page="player">PLAYER DETAILを開く</button></section></section>`;
 }
 function startCoreAmbientFeedback() {
@@ -860,7 +869,10 @@ async function weather(lat, lon) {
   const data = await fetch(url).then((r) => r.ok ? r.json() : Promise.reject());
   const code = data.current?.weather_code;
   const names = { 0:"CLEAR", 1:"MAINLY CLEAR", 2:"PARTLY CLOUDY", 3:"OVERCAST", 45:"FOG", 48:"FOG", 51:"LIGHT DRIZZLE", 53:"DRIZZLE", 55:"HEAVY DRIZZLE", 61:"LIGHT RAIN", 63:"RAIN", 65:"HEAVY RAIN", 71:"SNOW", 80:"RAIN SHOWERS", 95:"THUNDERSTORM" };
-  return { weather: names[code] || "LOCAL CONDITIONS", temperature: Math.round(data.current?.temperature_2m), humidity:Number(data.current?.relative_humidity_2m ?? 0), precipitation:Number(data.current?.precipitation ?? 0), rainfall:Number(data.current?.rain ?? 0), cloudCover:Math.round(data.current?.cloud_cover ?? 0), windSpeed:Number(data.current?.wind_speed_10m ?? 0), windDirection:Number(data.current?.wind_direction_10m ?? 0) };
+  const precipitation = Number(data.current?.precipitation ?? 0); const rainfall = Number(data.current?.rain ?? 0); const cloudCover = Math.round(data.current?.cloud_cover ?? 0);
+  const reportedRain = /RAIN|DRIZZLE|SHOWER|THUNDER/.test(names[code] || "");
+  const weatherName = reportedRain && Math.max(precipitation, rainfall) < .1 ? (cloudCover >= 60 ? "OVERCAST" : "PARTLY CLOUDY") : names[code] || "LOCAL CONDITIONS";
+  return { weather: weatherName, temperature: Math.round(data.current?.temperature_2m), humidity:Number(data.current?.relative_humidity_2m ?? 0), precipitation, rainfall, cloudCover, windSpeed:Number(data.current?.wind_speed_10m ?? 0), windDirection:Number(data.current?.wind_direction_10m ?? 0) };
 }
 function getPosition() { return new Promise((resolve, reject) => navigator.geolocation ? navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:20000, maximumAge:0 }) : reject()); }
 function worldArea(world = {}) {
@@ -960,7 +972,7 @@ async function sync() {
 }
 function applyWorldAtmosphere(world) {
   app.dataset.phase = String(world.phase || phase(new Date().getHours())).toLowerCase();
-  app.dataset.weather = /RAIN|DRIZZLE|THUNDER/.test(world.weather || "") ? "rain" : /CLOUD|OVERCAST|FOG/.test(world.weather || "") ? "cloud" : "clear";
+  app.dataset.weather = isRainWorld(world) ? "rain" : /CLOUD|OVERCAST|FOG/.test(world.weather || "") ? "cloud" : "clear";
 }
 function activateGlassPhysics(scope = app) {
   scope.querySelectorAll(".card, .detail-card, .sound-player, .navigator-message").forEach((card) => {
